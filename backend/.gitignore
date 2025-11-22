@@ -1,0 +1,10 @@
+# Security - NEVER commit your keys
+.env
+
+# Python Virtual Environment (Huge folder, unnecessary to track)
+venv/
+env/
+
+# Compiled Python files (Junk)
+__pycache__/
+*.pyc
