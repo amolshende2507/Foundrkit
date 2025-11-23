@@ -85,3 +85,47 @@ def generate_proposal(request: ProposalRequest):
     ai_response = model.generate_content(prompt)
 
     return {"proposal_text": ai_response.text}
+
+
+    # 1. Define the Chat Request
+class ChatRequest(BaseModel):
+    user_id: str
+    message: str
+@app.post("/chat")
+def chat_with_cofounder(request: ChatRequest):
+    print(f"DEBUG: Chat request from User ID: {request.user_id}") # <--- Debug 1
+
+    # Step A: Fetch Context
+    # We use the Admin Key now, so this WILL find the data.
+    response = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
+    
+    print(f"DEBUG: Database Data found: {response.data}") # <--- Debug 2
+
+    if response.data:
+        brand = response.data[0]
+        company = brand.get('company_name')
+        desc = brand.get('company_description')
+        tone = brand.get('tone_of_voice')
+        
+        print(f"DEBUG: Using Context -> {company} | {desc}") # <--- Debug 3
+        
+        context = f"You are the Virtual Co-Founder of '{company}'. Your company does: '{desc}'. Tone: {tone}."
+    else:
+        print("DEBUG: No data found. Using GENERIC context.") # <--- Debug 4
+        context = "You are a helpful business consultant for a freelancer."
+
+    # Step B: Construct the Prompt
+    prompt = f"""
+    {context}
+    
+    The user (your co-founder) asks: "{request.message}"
+    
+    Give a short, strategic, and actionable answer. 
+    Do not be generic. Use the company context to give specific advice.
+    """
+
+    # Step C: Generate Answer
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    ai_response = model.generate_content(prompt)
+
+    return {"reply": ai_response.text}

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Settings, LogOut } from "lucide-react"; // Icons
+import { LayoutDashboard, FileText, Settings, LogOut ,MessageSquare} from "lucide-react"; // Icons
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -23,6 +23,7 @@ export default function DashboardLayout({
   const navItems = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Proposals", href: "/dashboard/proposals", icon: FileText },
+    { name: "Co-Founder Chat", href: "/dashboard/chat", icon: MessageSquare },
     { name: "Brand Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
