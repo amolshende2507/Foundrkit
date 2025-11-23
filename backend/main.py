@@ -314,3 +314,177 @@ def get_emails(user_id: str):
 def delete_email(email_id: str):
     response = supabase.table("emails").delete().eq("id", email_id).execute()
     return {"status": "deleted"}
+
+# --- TASK MANAGER ENDPOINTS ---
+
+# 1. Models
+class TaskRequest(BaseModel):
+    user_id: str
+    title: str
+    status: str = "todo"
+    due_date: Optional[str] = None
+    priority: str = "medium"
+
+class AITaskGenRequest(BaseModel):
+    user_id: str
+    goal: str # e.g. "Launch a new website"
+
+# 2. CRUD Operations
+@app.get("/tasks/{user_id}")
+def get_tasks(user_id: str):
+    return supabase.table("tasks").select("*").eq("user_id", user_id).order("created_at", desc=True).execute().data
+
+@app.post("/tasks/add")
+def add_task(request: TaskRequest):
+    data = request.dict()
+    return supabase.table("tasks").insert(data).execute()
+
+@app.put("/tasks/{task_id}")
+def update_task_status(task_id: str, status: str):
+    return supabase.table("tasks").update({"status": status}).eq("id", task_id).execute()
+
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: str):
+    return supabase.table("tasks").delete().eq("id", task_id).execute()
+
+# 3. AI TASK GENERATOR (The "Co-Founder" Feature)
+@app.post("/tasks/generate")
+def generate_tasks_ai(request: AITaskGenRequest):
+    # Ask Gemini to break down a goal into tasks
+    prompt = f"""
+    You are an expert project manager. The user wants to: "{request.goal}".
+    Break this down into 3-5 specific, actionable tasks.
+    Return ONLY a JSON list of strings. Example: ["Buy Domain", "Design Logo", "Write Content"]
+    """
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    result = model.generate_content(prompt)
+    
+    # Simple cleaning to get list from text
+    import json
+    import re
+    try:
+        # Extract JSON part if Gemini adds markdown text
+        json_str = re.search(r'\[.*\]', result.text, re.DOTALL).group(0)
+        tasks = json.loads(json_str)
+        return {"tasks": tasks}
+    except:
+        return {"tasks": ["Define project scope", "Research competitors", "Set timeline"]} # Fallback
+    
+
+
+# --- ADVANCED CHAT ENDPOINTS ---
+
+class ChatSessionRequest(BaseModel):
+    user_id: str
+    title: str = "New Chat"
+
+class ChatMessageRequest(BaseModel):
+    user_id: str
+    session_id: str
+    message: str
+
+# 1. Create a New Session
+@app.post("/chat/sessions")
+def create_session(request: ChatSessionRequest):
+    data = {"user_id": request.user_id, "title": request.title}
+    response = supabase.table("chat_sessions").insert(data).execute()
+    return response.data[0]
+
+# 2. Get All Sessions (Sidebar List)
+@app.get("/chat/sessions/{user_id}")
+def get_sessions(user_id: str):
+    return supabase.table("chat_sessions").select("*").eq("user_id", user_id).order("created_at", desc=True).execute().data
+
+# 3. Get Messages for a Session (Load History)
+@app.get("/chat/messages/{session_id}")
+def get_messages(session_id: str):
+    return supabase.table("chat_messages").select("*").eq("session_id", session_id).order("created_at", desc=False).execute().data
+
+# 4. Rename Session (Editable Title)
+@app.put("/chat/sessions/{session_id}")
+def rename_session(session_id: str, title: str):
+    return supabase.table("chat_sessions").update({"title": title}).eq("id", session_id).execute()
+
+# 5. Delete Session
+@app.delete("/chat/sessions/{session_id}")
+def delete_session(session_id: str):
+    return supabase.table("chat_sessions").delete().eq("id", session_id).execute()
+
+# 6. THE SMART CHAT ENGINE (Sends Message + History)
+@app.post("/chat/send")
+def send_message(request: ChatMessageRequest):
+    # A. Save User Message
+    supabase.table("chat_messages").insert({
+        "session_id": request.session_id,
+        "role": "user",
+        "content": request.message
+    }).execute()
+
+    # --- B. GATHER BUSINESS INTELLIGENCE (The New Part) ---
+    
+    # 1. Fetch Brand Settings
+    brand_res = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
+    if brand_res.data:
+        b = brand_res.data[0]
+        brand_context = f"You are the Co-Founder of '{b.get('company_name')}'. Description: '{b.get('company_description')}'. Tone: {b.get('tone_of_voice')}."
+    else:
+        brand_context = "You are a helpful business co-founder."
+
+    # 2. Fetch Open Tasks (Todo / In Progress)
+    tasks_res = supabase.table("tasks").select("title, status, due_date").eq("user_id", request.user_id).neq("status", "done").limit(10).execute()
+    task_list = "\n".join([f"- {t['title']} ({t['status']})" for t in tasks_res.data])
+    task_context = f"CURRENT OPEN TASKS:\n{task_list}" if tasks_res.data else "NO OPEN TASKS."
+
+    # 3. Fetch Recent Proposals
+    prop_res = supabase.table("proposals").select("client_name, status, created_at").eq("user_id", request.user_id).order("created_at", desc=True).limit(5).execute()
+    prop_list = "\n".join([f"- To {p['client_name']} (Status: {p['status']})" for p in prop_res.data])
+    prop_context = f"RECENT PROPOSALS:\n{prop_list}" if prop_res.data else "NO RECENT PROPOSALS."
+
+    # 4. Fetch Recent Clients
+    client_res = supabase.table("clients").select("name, industry, notes").eq("user_id", request.user_id).order("created_at", desc=True).limit(5).execute()
+    client_list = "\n".join([f"- {c['name']} ({c['industry']}): {c['notes']}" for c in client_res.data])
+    client_context = f"KEY CLIENTS:\n{client_list}" if client_res.data else "NO CLIENTS YET."
+
+    # --- C. BUILD THE SUPER PROMPT ---
+
+    # Fetch Chat History
+    history_res = supabase.table("chat_messages").select("*").eq("session_id", request.session_id).order("created_at", desc=True).limit(10).execute()
+    history_msgs = history_res.data[::-1]
+    history_text = ""
+    for msg in history_msgs:
+        history_text += f"{msg['role'].upper()}: {msg['content']}\n"
+
+    prompt = f"""
+    SYSTEM IDENTITY:
+    {brand_context}
+
+    YOUR CURRENT BUSINESS STATE:
+    {task_context}
+    
+    {prop_context}
+    
+    {client_context}
+
+    CHAT HISTORY:
+    {history_text}
+
+    INSTRUCTION:
+    Reply to the user. You have full visibility of their business (tasks, proposals, clients).
+    If they ask about their workload, check the TASKS section.
+    If they ask about money/clients, check PROPOSALS and CLIENTS.
+    Be short, strategic, and proactive.
+    """
+
+    # D. Generate AI Response
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    ai_response = model.generate_content(prompt)
+    ai_text = ai_response.text
+
+    # E. Save Response
+    supabase.table("chat_messages").insert({
+        "session_id": request.session_id,
+        "role": "ai",
+        "content": ai_text
+    }).execute()
+
+    return {"reply": ai_text}

@@ -7,6 +7,7 @@ import { LayoutDashboard, FileText, Settings, LogOut ,MessageSquare,Mail } from 
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
+import { CheckSquare } from "lucide-react"
 export default function DashboardLayout({
   children,
 }: {
@@ -24,6 +25,7 @@ export default function DashboardLayout({
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
     { name: "Proposals", href: "/dashboard/proposals/list", icon: FileText },
     { name: "Co-Founder Chat", href: "/dashboard/chat", icon: MessageSquare },
+    { name: "Tasks", href: "/dashboard/tasks", icon: CheckSquare },
     { name: "Brand Settings", href: "/dashboard/settings", icon: Settings },
     { name: "Email Assistant", href: "/dashboard/emails/list", icon: Mail },
     { name: "Clients", href: "/dashboard/clients", icon: Users },
