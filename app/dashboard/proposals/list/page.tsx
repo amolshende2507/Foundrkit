@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, Trash2 } from "lucide-react";
 
 interface Proposal {
     id: string;
@@ -31,6 +31,13 @@ export default function ProposalList() {
         }
         fetchProposals();
     }, []);
+
+    const handleDelete = async (id: string) => {
+        if (!confirm("Delete this proposal?")) return;
+        await fetch(`http://localhost:8000/proposals/${id}`, { method: "DELETE" });
+        // Refresh list locally to avoid full reload
+        setProposals(proposals.filter(p => p.id !== id));
+    };
 
     return (
         <div className="space-y-6">
@@ -67,12 +74,12 @@ export default function ProposalList() {
                                     Created: {new Date(prop.created_at).toLocaleDateString()}
                                 </p>
                                 <div className="flex gap-2">
-                                    {/* Link to a Detail view we will build next */}
-                                    <Link href={`/dashboard/proposals/${prop.id}`} className="w-full">
-                                        <Button variant="outline" className="w-full text-sm">
-                                            View / PDF
-                                        </Button>
+                                    <Link href={`/dashboard/proposals/${prop.id}`} className="flex-1">
+                                        <Button variant="outline" className="w-full text-sm">View / PDF</Button>
                                     </Link>
+                                    <Button variant="ghost" className="text-red-400 hover:text-red-600" onClick={() => handleDelete(prop.id)}>
+                                        <Trash2 size={16} />
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>

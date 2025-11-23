@@ -202,3 +202,27 @@ def add_client(request: ClientRequest):
 def get_clients(user_id: str):
     response = supabase.table("clients").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
     return response.data
+
+
+# --- DELETE & EDIT API ENDPOINTS ---
+
+# 1. Delete a Client
+@app.delete("/clients/{client_id}")
+def delete_client(client_id: str):
+    response = supabase.table("clients").delete().eq("id", client_id).execute()
+    return {"status": "deleted", "data": response.data}
+
+# 2. Delete a Proposal
+@app.delete("/proposals/{proposal_id}")
+def delete_proposal(proposal_id: str):
+    response = supabase.table("proposals").delete().eq("id", proposal_id).execute()
+    return {"status": "deleted", "data": response.data}
+
+# 3. Update (Edit) a Proposal Text
+class UpdateProposalRequest(BaseModel):
+    content: str
+
+@app.put("/proposals/{proposal_id}")
+def update_proposal(proposal_id: str, request: UpdateProposalRequest):
+    response = supabase.table("proposals").update({"content": request.content}).eq("id", proposal_id).execute()
+    return {"status": "updated", "data": response.data}
