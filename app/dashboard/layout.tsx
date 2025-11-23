@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Settings, LogOut ,MessageSquare} from "lucide-react"; // Icons
+import { LayoutDashboard, FileText, Settings, LogOut ,MessageSquare,Mail } from "lucide-react"; // Icons
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Users } from "lucide-react";
@@ -25,7 +25,10 @@ export default function DashboardLayout({
     { name: "Proposals", href: "/dashboard/proposals/list", icon: FileText },
     { name: "Co-Founder Chat", href: "/dashboard/chat", icon: MessageSquare },
     { name: "Brand Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Email Assistant", href: "/dashboard/emails/list", icon: Mail },
     { name: "Clients", href: "/dashboard/clients", icon: Users },
+    
+    
   ];
 
   return (

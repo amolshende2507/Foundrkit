@@ -226,3 +226,91 @@ class UpdateProposalRequest(BaseModel):
 def update_proposal(proposal_id: str, request: UpdateProposalRequest):
     response = supabase.table("proposals").update({"content": request.content}).eq("id", proposal_id).execute()
     return {"status": "updated", "data": response.data}
+
+# 1. Email Request Model
+class EmailRequest(BaseModel):
+    user_id: str
+    client_name: str
+    email_type: str  # e.g. "Cold Outreach", "Follow Up", "Payment Reminder"
+    context: str     # Extra details like "They haven't replied in 3 days"
+
+# 2. API: Generate Email
+@app.post("/generate-email")
+def generate_email(request: EmailRequest):
+    # A. Fetch Brand DNA
+    response = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
+    
+    if response.data:
+        brand = response.data[0]
+        sender_company = brand.get("company_name")
+        tone = brand.get("tone_of_voice")
+        description = brand.get("company_description")
+    else:
+        sender_company = "My Company"
+        tone = "Professional"
+        description = "Services"
+
+    # B. The "Email Architect" Prompt
+    prompt = f"""
+    You are {sender_company}. You describe yourself as: "{description}".
+    
+    Write a {request.email_type} email to a client named "{request.client_name}".
+    
+    Context/Goal: {request.context}
+    Tone: {tone}
+    
+    IMPORTANT:
+    1. Return JSON format with 'subject' and 'body'.
+    2. Do NOT use Markdown (no **bold** or ## headers). Keep it plain text ready for Gmail.
+    3. Keep it concise and human-sounding.
+    
+    Output format:
+    {{
+      "subject": "The subject line here",
+      "body": "Hi [Name],\n\nThe email body here..."
+    }}
+    """
+
+    # C. Generate
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    ai_response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+
+    # D. Return Parsed JSON
+    # Gemini 1.5 Flash is good at returning strict JSON if asked.
+    return ai_response.text
+
+
+# --- EMAIL CRUD ENDPOINTS ---
+
+# 1. Save Email
+class EmailSaveRequest(BaseModel):
+    user_id: str
+    client_name: str
+    subject: str
+    body: str
+    email_type: str
+
+@app.post("/emails/save")
+def save_email(request: EmailSaveRequest):
+    data = {
+        "user_id": request.user_id,
+        "client_name": request.client_name,
+        "subject": request.subject,
+        "body": request.body,
+        "email_type": request.email_type,
+        "status": "Draft"
+    }
+    response = supabase.table("emails").insert(data).execute()
+    return {"status": "success", "data": response.data}
+
+# 2. Get Emails List
+@app.get("/emails/{user_id}")
+def get_emails(user_id: str):
+    response = supabase.table("emails").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return response.data
+
+# 3. Delete Email
+@app.delete("/emails/{email_id}")
+def delete_email(email_id: str):
+    response = supabase.table("emails").delete().eq("id", email_id).execute()
+    return {"status": "deleted"}
