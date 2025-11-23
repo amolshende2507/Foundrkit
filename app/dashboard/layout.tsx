@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, FileText, Settings, LogOut ,MessageSquare} from "lucide-react"; // Icons
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-
+import { Users } from "lucide-react";
 export default function DashboardLayout({
   children,
 }: {
@@ -22,9 +22,10 @@ export default function DashboardLayout({
 
   const navItems = [
     { name: "Overview", href: "/dashboard", icon: LayoutDashboard },
-    { name: "Proposals", href: "/dashboard/proposals", icon: FileText },
+    { name: "Proposals", href: "/dashboard/proposals/list", icon: FileText },
     { name: "Co-Founder Chat", href: "/dashboard/chat", icon: MessageSquare },
     { name: "Brand Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Clients", href: "/dashboard/clients", icon: Users },
   ];
 
   return (

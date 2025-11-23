@@ -5,7 +5,8 @@ from supabase import create_client, Client # <--- NEW IMPORT
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-
+from typing import Optional
+from uuid import UUID
 load_dotenv()
 
 # Configure Supabase & AI
@@ -129,3 +130,75 @@ def chat_with_cofounder(request: ChatRequest):
     ai_response = model.generate_content(prompt)
 
     return {"reply": ai_response.text}
+
+# 1. Data Model for Saving
+class ProposalSaveRequest(BaseModel):
+    user_id: str
+    client_name: str
+    project_details: str
+    content: str
+    status: str = "Draft"
+
+# 2. API: Save a Proposal
+@app.post("/proposals/save")
+def save_proposal(request: ProposalSaveRequest):
+    data = {
+        "user_id": request.user_id,
+        "client_name": request.client_name,
+        "project_details": request.project_details,
+        "content": request.content,
+        "status": request.status
+    }
+    # Insert into Supabase
+    response = supabase.table("proposals").insert(data).execute()
+    return {"status": "success", "data": response.data}
+
+# 3. API: Get All Proposals for a User
+@app.get("/proposals/{user_id}")
+def get_proposals(user_id: str):
+    response = supabase.table("proposals").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return response.data
+
+# 4. API: Get Single Proposal
+
+@app.get("/proposals/detail/{proposal_id}")
+def get_proposal_detail(proposal_id: str):
+    # 1. Validate if it is a real UUID before asking Database
+    try:
+        val = UUID(proposal_id, version=4)
+    except ValueError:
+        # If it's "undefined" or "abc", return empty instead of crashing
+        return {}
+
+    # 2. If valid, query Supabase
+    response = supabase.table("proposals").select("*").eq("id", proposal_id).execute()
+    return response.data[0] if response.data else {}
+
+
+
+# 1. Client Data Model
+class ClientRequest(BaseModel):
+    user_id: str
+    name: str
+    email: str
+    industry: str
+    notes: str
+
+# 2. API: Add a Client
+@app.post("/clients/add")
+def add_client(request: ClientRequest):
+    data = {
+        "user_id": request.user_id,
+        "name": request.name,
+        "email": request.email,
+        "industry": request.industry,
+        "notes": request.notes
+    }
+    response = supabase.table("clients").insert(data).execute()
+    return {"status": "success", "data": response.data}
+
+# 3. API: List Clients
+@app.get("/clients/{user_id}")
+def get_clients(user_id: str):
+    response = supabase.table("clients").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return response.data
