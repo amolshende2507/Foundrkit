@@ -488,3 +488,39 @@ def send_message(request: ChatMessageRequest):
     }).execute()
 
     return {"reply": ai_text}
+
+
+# --- ANALYTICS ENDPOINTS ---
+
+@app.get("/dashboard/stats/{user_id}")
+def get_dashboard_stats(user_id: str):
+    # 1. Count Proposals
+    prop_res = supabase.table("proposals").select("id", count="exact").eq("user_id", user_id).execute()
+    proposal_count = prop_res.count
+
+    # 2. Count Clients
+    client_res = supabase.table("clients").select("id", count="exact").eq("user_id", user_id).execute()
+    client_count = client_res.count
+
+    # 3. Task Metrics (Completed vs Total)
+    task_total_res = supabase.table("tasks").select("id", count="exact").eq("user_id", user_id).execute()
+    task_done_res = supabase.table("tasks").select("id", count="exact").eq("user_id", user_id).eq("status", "done").execute()
+    
+    total_tasks = task_total_res.count or 1 # Avoid division by zero
+    completed_tasks = task_done_res.count
+    productivity_score = int((completed_tasks / total_tasks) * 100)
+
+    # 4. Recent Activity Log (Combine Proposals + Tasks)
+    # Fetch last 3 proposals
+    recent_props = supabase.table("proposals").select("client_name, created_at").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
+    # Fetch last 3 completed tasks
+    recent_tasks = supabase.table("tasks").select("title, created_at").eq("user_id", user_id).eq("status", "done").order("created_at", desc=True).limit(3).execute()
+
+    return {
+        "proposal_count": proposal_count,
+        "client_count": client_count,
+        "productivity_score": productivity_score,
+        "active_tasks": task_total_res.count - completed_tasks,
+        "recent_proposals": recent_props.data,
+        "recent_tasks": recent_tasks.data
+    }
