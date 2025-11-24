@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Sparkles, Copy, Type, Image as ImageIcon, PenTool,Download  } from "lucide-react";
+import { Loader2, Sparkles, Copy, Type, Image as ImageIcon, PenTool, Download, Heart,Trash2 } from "lucide-react";
 
 export default function BrandingSuite() {
     const [loading, setLoading] = useState(false);
@@ -19,6 +19,7 @@ export default function BrandingSuite() {
     const [names, setNames] = useState<string[]>([]);
     const [slogans, setSlogans] = useState<string[]>([]);
     const [logoUrl, setLogoUrl] = useState("");
+    const [savedAssets, setSavedAssets] = useState<any[]>([]);
 
     const handleGenerate = async (type: string) => {
         if (!keywords) {
@@ -87,6 +88,44 @@ export default function BrandingSuite() {
         }
     };
 
+    useEffect(() => {
+        fetchSavedAssets();
+    }, []);
+
+    const fetchSavedAssets = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const res = await fetch(`http://localhost:8000/branding/assets/${user.id}`);
+        const data = await res.json();
+        setSavedAssets(data);
+    };
+
+    const handleSaveAsset = async (type: string, content: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        await fetch("http://localhost:8000/branding/assets/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                user_id: user.id,
+                asset_type: type,
+                content: content
+            })
+        });
+        // Refresh the list immediately
+        fetchSavedAssets();
+        alert("Asset saved to Library!");
+    };
+
+    const handleDeleteAsset = async (id: string) => {
+        if (!confirm("Remove this asset?")) return;
+        await fetch(`http://localhost:8000/branding/assets/${id}`, { method: "DELETE" });
+        setSavedAssets(savedAssets.filter(a => a.id !== id));
+    };
+
+
+
     return (
         <div className="space-y-6">
             <div>
@@ -133,10 +172,17 @@ export default function BrandingSuite() {
                         </Button>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                             {names.map((name, i) => (
-                                <Card key={i} className="hover:shadow-md cursor-pointer" onClick={() => navigator.clipboard.writeText(name)}>
+                                <Card key={i} className="hover:shadow-md group relative">
                                     <CardContent className="p-6 text-center flex justify-between items-center">
                                         <span className="text-xl font-bold text-slate-800">{name}</span>
-                                        <Copy className="h-4 w-4 text-slate-400" />
+                                        <div className="flex gap-2">
+                                            <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(name)}>
+                                                <Copy className="h-4 w-4 text-slate-400" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleSaveAsset("name", name)}>
+                                                <Heart className="h-4 w-4 text-red-400 hover:fill-red-400" />
+                                            </Button>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             ))}
@@ -151,11 +197,19 @@ export default function BrandingSuite() {
                             {loading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />} Generate Slogans
                         </Button>
                         <div className="space-y-3 w-full max-w-2xl">
+
                             {slogans.map((slogan, i) => (
-                                <Card key={i} className="hover:shadow-md cursor-pointer" onClick={() => navigator.clipboard.writeText(slogan)}>
-                                    <CardContent className="p-4 flex justify-between items-center">
-                                        <span className="text-lg text-slate-700 italic">"{slogan}"</span>
-                                        <Copy className="h-4 w-4 text-slate-400" />
+                                <Card key={i} className="hover:shadow-md group relative">
+                                    <CardContent className="p-6 text-center flex justify-between items-center">
+                                        <span className="text-xl font-bold text-slate-800">{slogan}</span>
+                                        <div className="flex gap-2">
+                                            <Button variant="ghost" size="icon" onClick={() => navigator.clipboard.writeText(slogan)}>
+                                                <Copy className="h-4 w-4 text-slate-400" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleSaveAsset("slogan", slogan)}>
+                                                <Heart className="h-4 w-4 text-red-400 hover:fill-red-400" />
+                                            </Button>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             ))}
@@ -169,6 +223,9 @@ export default function BrandingSuite() {
                         <Button size="lg" onClick={() => handleGenerate("logo")} disabled={loading} className="bg-green-600 hover:bg-green-700">
                             {loading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
                             {loading ? "Designing..." : "Generate AI Logo"}
+                        </Button>
+                        <Button variant="outline" onClick={() => handleSaveAsset("logo", logoUrl)}>
+                            <Heart className="mr-2 h-4 w-4" /> Save to Library
                         </Button>
 
                         {logoUrl ? (
@@ -205,6 +262,44 @@ export default function BrandingSuite() {
                     </div>
                 </TabsContent>
             </Tabs>
+            {/* SAVED ASSETS LIBRARY */}
+            <div className="mt-12 border-t pt-8">
+                <h2 className="text-2xl font-bold text-slate-900 mb-6">Saved Asset Library</h2>
+
+                {savedAssets.length === 0 ? (
+                    <p className="text-slate-500">No saved assets yet. Generate and save some!</p>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {savedAssets.map((asset) => (
+                            <Card key={asset.id} className="relative group overflow-hidden">
+                                <Button
+                                    variant="destructive" size="icon"
+                                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 h-8 w-8"
+                                    onClick={() => handleDeleteAsset(asset.id)}
+                                >
+                                    <Trash2 size={14} />
+                                </Button>
+
+                                {asset.asset_type === 'logo' ? (
+                                    <div className="aspect-square bg-slate-100 relative">
+                                        <img src={asset.content} className="w-full h-full object-cover" />
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-2 text-center">
+                                            Saved Logo
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <CardContent className="p-6 flex flex-col justify-center h-full min-h-[120px]">
+                                        <span className="text-xs font-bold text-blue-600 uppercase mb-2">{asset.asset_type}</span>
+                                        <p className="text-lg font-medium text-slate-900">
+                                            {asset.content}
+                                        </p>
+                                    </CardContent>
+                                )}
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

@@ -580,3 +580,29 @@ def generate_branding(request: BrandingRequest):
     clean_text = text.replace("```json", "").replace("```xml", "").replace("```svg", "").replace("```", "").strip()
 
     return {"result": clean_text, "type": request.asset_type}
+
+
+# --- BRAND ASSET LIBRARY ENDPOINTS ---
+
+class SaveAssetRequest(BaseModel):
+    user_id: str
+    asset_type: str
+    content: str
+
+@app.post("/branding/assets/save")
+def save_asset(request: SaveAssetRequest):
+    data = {
+        "user_id": request.user_id,
+        "asset_type": request.asset_type,
+        "content": request.content
+    }
+    response = supabase.table("branding_assets").insert(data).execute()
+    return {"status": "success", "data": response.data}
+
+@app.get("/branding/assets/{user_id}")
+def get_assets(user_id: str):
+    return supabase.table("branding_assets").select("*").eq("user_id", user_id).order("created_at", desc=True).execute().data
+
+@app.delete("/branding/assets/{asset_id}")
+def delete_asset(asset_id: str):
+    return supabase.table("branding_assets").delete().eq("id", asset_id).execute()
