@@ -524,3 +524,59 @@ def get_dashboard_stats(user_id: str):
         "recent_proposals": recent_props.data,
         "recent_tasks": recent_tasks.data
     }
+
+
+# --- BRANDING SUITE ENDPOINTS ---
+
+class BrandingRequest(BaseModel):
+    user_id: str
+    asset_type: str  # "name", "slogan", "bio", "logo"
+    keywords: str
+    style: str       # "modern", "minimalist", "playful"
+
+@app.post("/branding/generate")
+def generate_branding(request: BrandingRequest):
+    # 1. Construct Prompt based on Type
+    if request.asset_type == "logo":
+        # NEW STRATEGY: Generate a Prompt for an Image Generator
+        prompt = f"""
+        You are an expert AI Art Prompter.
+        Write a detailed text prompt to generate a High-Quality Logo for: "{request.keywords}".
+        Style: {request.style}.
+        
+        Rules:
+        1. Return ONLY the raw prompt string. No JSON, no markdown.
+        2. Include keywords like: "vector style", "white background", "minimalist", "high resolution", "professional branding".
+        3. Keep it under 25 words.
+        """
+    
+    elif request.asset_type == "name":
+        prompt = f"""
+        Generate 5 creative, available business names for: "{request.keywords}".
+        Style: {request.style}.
+        Return ONLY a JSON list of strings. Example: ["Name1", "Name2"]
+        """
+
+    elif request.asset_type == "slogan":
+        prompt = f"""
+        Generate 5 catchy taglines/slogans for: "{request.keywords}".
+        Style: {request.style}.
+        Return ONLY a JSON list of strings.
+        """
+
+    else: # Bio / Mission
+        prompt = f"""
+        Write a professional 'About Us' or 'Mission Statement' for: "{request.keywords}".
+        Style: {request.style}.
+        Keep it under 50 words.
+        """
+
+    # 2. Generate
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    response = model.generate_content(prompt)
+    text = response.text
+
+    # 3. Clean Output (Remove Markdown if AI adds it)
+    clean_text = text.replace("```json", "").replace("```xml", "").replace("```svg", "").replace("```", "").strip()
+
+    return {"result": clean_text, "type": request.asset_type}
