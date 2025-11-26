@@ -215,23 +215,34 @@
 //         </div >
 //     );
 // }
-
 "use client";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // <--- NEW
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Loader2, Wand2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { ProposalPDF } from "@/components/ui/ProposalPDF";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PageLoader } from "@/components/PageLoader";
 
 const PDFDownloadLink = dynamic(
   () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
@@ -240,31 +251,36 @@ const PDFDownloadLink = dynamic(
 
 export default function ProposalGenerator() {
   const router = useRouter();
+
+  const [pageLoading, setPageLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
-  
-  // Data State
+
   const [clients, setClients] = useState<any[]>([]);
-  const [selectedClient, setSelectedClient] = useState<any>(null); // Stores full client object
-  
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+
   const [projectDetails, setProjectDetails] = useState("");
   const [generatedProposal, setGeneratedProposal] = useState("");
   const [companyName, setCompanyName] = useState("FoundrKit User");
 
-  // 1. Fetch Clients & Company Name on Load
   useEffect(() => {
     async function fetchData() {
+      setPageLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Get Clients from Python Backend
       const clientRes = await fetch(`http://localhost:8000/clients/${user.id}`);
       const clientData = await clientRes.json();
       setClients(clientData);
 
-      // Get User Company Name (for PDF)
-      const { data: brand } = await supabase.from("brand_settings").select("company_name").eq("user_id", user.id).single();
+      const { data: brand } = await supabase
+        .from("brand_settings")
+        .select("company_name")
+        .eq("user_id", user.id)
+        .single();
+
       if (brand) setCompanyName(brand.company_name);
+      setPageLoading(false);
     }
     fetchData();
   }, []);
@@ -278,44 +294,38 @@ export default function ProposalGenerator() {
     setLoading(true);
     setGeneratedProposal("");
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      // 2. THE SMART PART: Combine Client Data + Project Details
-      // We tell the AI: "Here is the project, AND here is what we know about the client."
-      const enrichedDetails = `
-        Project Scope: ${projectDetails}
-        
-        Client Industry: ${selectedClient.industry || "General"}
-        Client Context/Notes: ${selectedClient.notes || "None"}
-      `;
+    const enrichedDetails = `
+Project Scope: ${projectDetails}
 
-      const response = await fetch("http://localhost:8000/generate-proposal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: user.id,
-          client_name: selectedClient.name, // Use name from dropdown
-          project_details: enrichedDetails, // Send the smarter prompt
-        }),
-      });
+Client Industry: ${selectedClient.industry || "General"}
+Client Context/Notes: ${selectedClient.notes || "None"}
+`;
 
-      const data = await response.json();
-      setGeneratedProposal(data.proposal_text);
+    const response = await fetch("http://localhost:8000/generate-proposal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: user.id,
+        client_name: selectedClient.name,
+        project_details: enrichedDetails,
+      })
+    });
 
-    } catch (error) {
-      alert("Error generating proposal");
-    } finally {
-      setLoading(false);
-    }
+    const data = await response.json();
+    setGeneratedProposal(data.proposal_text);
+    setLoading(false);
   };
 
   const handleSave = async () => {
     if (!generatedProposal || !selectedClient) return;
+
     setSaveLoading(true);
+
     const { data: { user } } = await supabase.auth.getUser();
-    
+
     await fetch("http://localhost:8000/proposals/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -325,35 +335,35 @@ export default function ProposalGenerator() {
         project_details: projectDetails,
         content: generatedProposal,
         status: "Draft"
-      }),
+      })
     });
-    
+
     setSaveLoading(false);
     router.push("/dashboard/proposals/list");
   };
 
+  if (pageLoading) return <PageLoader />;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[calc(100vh-100px)]">
-      
-      {/* LEFT: Input Form */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[calc(100vh-110px)] max-w-7xl mx-auto">
+      {/* LEFT */}
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Proposal Engine</h1>
-          <p className="text-slate-600">Select a client and let AI do the rest.</p>
+          <h1 className="text-4xl font-bold tracking-tight">Proposal Engine</h1>
+          <p className="text-slate-500">Generate client-ready proposals with AI.</p>
         </div>
 
-        <Card className="flex-1">
+        <Card className="flex-1 shadow-sm border-slate-200">
           <CardHeader>
-            <CardTitle>Proposal Configuration</CardTitle>
+            <CardTitle>Configuration</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            
-            {/* DROPDOWN FOR CLIENTS */}
+
+          <CardContent className="space-y-5">
             <div className="space-y-2">
               <Label>Select Client</Label>
               <Select onValueChange={(value) => {
-                  const client = clients.find(c => c.id === value);
-                  setSelectedClient(client);
+                const client = clients.find(c => c.id === value);
+                setSelectedClient(client);
               }}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a client..." />
@@ -366,58 +376,109 @@ export default function ProposalGenerator() {
                   ))}
                 </SelectContent>
               </Select>
+
               {selectedClient && (
-                  <p className="text-xs text-blue-600">
-                    AI will use context: "{selectedClient.notes || selectedClient.industry}"
-                  </p>
+                <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+                  AI Context: {selectedClient.notes || selectedClient.industry}
+                </p>
               )}
             </div>
-            
+
             <div className="space-y-2">
               <Label>Project Scope</Label>
-              <Textarea 
-                placeholder="e.g. Redesign their landing page to increase conversions..." 
-                className="h-40"
+              <Textarea
+                placeholder="Describe the project goals, scope, and deliverables..."
+                className="h-44 resize-none"
                 value={projectDetails}
                 onChange={(e) => setProjectDetails(e.target.value)}
               />
             </div>
 
-            <Button onClick={handleGenerate} disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700">
-              {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Writing...</> : <><Wand2 className="mr-2 h-4 w-4" /> Generate Smart Proposal</>}
+            <Button
+              type="button"
+              onClick={handleGenerate}
+              disabled={loading}
+              className="w-full text-base py-6 bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Generating Proposal...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="mr-2 h-5 w-5" />
+                  Generate Smart Proposal
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
       </div>
 
-      {/* RIGHT: Preview */}
+      {/* RIGHT */}
       <div className="flex flex-col gap-4">
-        <div className="flex justify-between items-center h-[56px]">
-            <h2 className="text-xl font-semibold text-slate-900">Preview</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">Live Preview</h2>
+
+          {generatedProposal && (
             <div className="flex gap-2">
-                {generatedProposal && (
-                    <>
-                        <Button variant="outline" onClick={handleSave} disabled={saveLoading}>
-                            {saveLoading ? "Saving..." : "Save Draft"}
-                        </Button>
-                        <PDFDownloadLink
-                            document={<ProposalPDF content={generatedProposal} companyName={companyName} clientName={selectedClient?.name || "Client"} />}
-                            fileName="Proposal.pdf"
-                        >
-                            {({ loading }) => <Button disabled={loading}>Download PDF</Button>}
-                        </PDFDownloadLink>
-                    </>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSave}
+                disabled={saveLoading}
+              >
+                {saveLoading ? "Saving..." : "Save Draft"}
+              </Button>
+
+              <PDFDownloadLink
+                document={
+                  <ProposalPDF
+                    content={generatedProposal}
+                    companyName={companyName}
+                    clientName={selectedClient?.name || "Client"}
+                  />
+                }
+                fileName="proposal.pdf"
+              >
+                {({ loading }) => (
+                  <Button type="button" disabled={loading}>
+                    Download PDF
+                  </Button>
                 )}
+              </PDFDownloadLink>
             </div>
+          )}
         </div>
-        
-        <Card className="flex-1 overflow-hidden bg-slate-50 border-slate-200">
+
+        <Card className="flex-1 bg-white border-slate-200 shadow-sm overflow-hidden">
           <CardContent className="h-full overflow-y-auto p-8 prose prose-slate max-w-none">
-            {generatedProposal ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{generatedProposal}</ReactMarkdown> : 
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                    <p>Select a client to start.</p>
-                </div>
-            }
+            {/* Skeleton during generation */}
+            {loading && (
+              <div className="space-y-4">
+                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-4/6" />
+                <Skeleton className="h-6 w-1/2" />
+              </div>
+            )}
+
+            {/* Render proposal */}
+            {!loading && generatedProposal && (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {generatedProposal}
+              </ReactMarkdown>
+            )}
+
+            {/* Empty state */}
+            {!loading && !generatedProposal && (
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
+                <p>Start by selecting a client</p>
+                <p className="text-xs">Your proposal will appear here</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
