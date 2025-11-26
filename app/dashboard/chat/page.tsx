@@ -17,7 +17,6 @@ export default function AdvancedChat() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Rename State
