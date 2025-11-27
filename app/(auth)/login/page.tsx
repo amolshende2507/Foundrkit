@@ -62,7 +62,8 @@ return (
 
     {/* LEFT SIDE: Branding / Art */}
     <div className="hidden md:flex flex-col justify-between bg-slate-900 p-10 text-white relative">
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop')] bg-cover opacity-20"></div>
+      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop')] bg-cover opacity-25 backdrop-blur-sm"></div>
+
       <div className="relative z-10 flex items-center gap-2">
         <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
           <Sparkles className="h-5 w-5 text-white" />
@@ -86,10 +87,10 @@ return (
 
     {/* RIGHT SIDE: The Form */}
     <div className="flex items-center justify-center p-8 bg-slate-50">
-      <div className="w-full max-w-sm space-y-6">
+      <div className="w-full max-w-sm space-y-6 bg-white p-8 rounded-2xl shadow-[0_20px_50px_-20px_rgba(0,0,0,0.2)] border border-slate-100">
 
         <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
             {isLogin ? "Welcome back" : "Create an account"}
           </h1>
           <p className="text-sm text-slate-500">
@@ -128,7 +129,7 @@ return (
 
           {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
 
-          <Button disabled={isLoading} className="w-full bg-slate-900 hover:bg-slate-800 text-white">
+          <Button disabled={isLoading} className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white tracking-wide">
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isLogin ? "Sign In" : "Sign Up"}
           </Button>
@@ -136,7 +137,7 @@ return (
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
+            <span className="w-full border-t border-slate-200" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
             <span className="bg-slate-50 px-2 text-slate-500">Or continue with</span>
@@ -151,7 +152,7 @@ return (
           {isLogin ? "Don't have an account? " : "Already have an account? "}
           <button
             onClick={() => setIsLogin(!isLogin)}
-            className="underline underline-offset-4 hover:text-slate-900 font-medium"
+            className="font-semibold text-slate-900 hover:underline underline-offset-4"
           >
             {isLogin ? "Sign Up" : "Login"}
           </button>
