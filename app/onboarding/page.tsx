@@ -110,7 +110,8 @@ export default function OnboardingWizard() {
               <div className="space-y-2">
                 <Label>What should we call you?</Label>
                 <div className="relative">
-                  <User className="absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                  <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+
                   <Input className="h-11 rounded-xl border-slate-200 focus:border-slate-900 focus:ring-slate-900"
                     placeholder="Your Full Name" value={formData.full_name} onChange={e => updateForm("full_name", e.target.value)} />
                 </div>
@@ -136,7 +137,7 @@ export default function OnboardingWizard() {
               <div className="space-y-2">
                 <Label>Company / Project Name</Label>
                 <div className="relative">
-                  <Building2 className="absolute right-3 top-3 h-4 w-4 text-slate-400" />
+                  <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                   <Input className="h-11 rounded-xl border-slate-200 focus:border-slate-900 focus:ring-slate-900"
                     placeholder="e.g. Neon Studio" value={formData.company_name} onChange={e => updateForm("company_name", e.target.value)} />
                 </div>
