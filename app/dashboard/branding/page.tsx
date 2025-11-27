@@ -181,18 +181,18 @@ export default function BrandingSuite() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold text-slate-900">
-                    Branding Suite
-                </h1>
-                <p className="text-slate-600">
-                    Generate your identity from scratch.
-                </p>
-            </div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">
+                Branding Suite
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+                High-impact brand creation powered by AI
+            </p>
+
 
             {/* Controls */}
-            <Card className="bg-slate-50 border-slate-200">
-                <CardContent className="p-6 flex gap-4 items-end">
+            <Card className="bg-white border border-slate-100 rounded-2xl shadow-[0_10px_30px_-15px_rgba(0,0,0,0.15)]">
+
+                <CardContent className="p-6 flex flex-col md:flex-row gap-4 items-end">
                     <div className="flex-1 space-y-2">
                         <Label>Describe your business</Label>
                         <Input
@@ -236,16 +236,19 @@ export default function BrandingSuite() {
 
             {/* Tabs */}
             <Tabs defaultValue="names" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 h-12 bg-slate-100">
-                    <TabsTrigger value="names">
+                <TabsList className="grid w-full grid-cols-3 h-12 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                    <TabsTrigger value="names" className="data-[state=active]:bg-slate-900 data-[state=active]:text-white rounded-lg"
+>
                         <Type className="mr-2 w-4 h-4" />
                         Business Names
                     </TabsTrigger>
-                    <TabsTrigger value="slogans">
+                    <TabsTrigger value="slogans" className="data-[state=active]:bg-slate-900 data-[state=active]:text-white rounded-lg"
+>
                         <PenTool className="mr-2 w-4 h-4" />
                         Slogans
                     </TabsTrigger>
-                    <TabsTrigger value="logos">
+                    <TabsTrigger value="logos" className="data-[state=active]:bg-slate-900 data-[state=active]:text-white rounded-lg"
+>
                         <ImageIcon className="mr-2 w-4 h-4" />
                         Logo Generator
                     </TabsTrigger>
@@ -270,7 +273,8 @@ export default function BrandingSuite() {
                         {generationType === "name" ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                                 {[1, 2, 3, 4].map(i => (
-                                    <Card key={i}>
+                                    <Card key={i} className="hover:shadow-lg transition-all duration-300 border border-slate-100 rounded-2xl">
+
                                         <CardContent className="p-6">
                                             <Skeleton className="h-6 w-3/4" />
                                         </CardContent>
@@ -280,9 +284,10 @@ export default function BrandingSuite() {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                                 {names.map((name, i) => (
-                                    <Card key={i}>
+                                    <Card key={i} className="hover:shadow-lg transition-all duration-300 border border-slate-100 rounded-2xl">
+
                                         <CardContent className="p-6 flex justify-between items-center">
-                                            <span className="text-xl font-bold">
+                                            <span className="text-lg md:text-xl font-semibold tracking-tight">
                                                 {name}
                                             </span>
                                             <div className="flex gap-2">
@@ -340,7 +345,8 @@ export default function BrandingSuite() {
                         {generationType === "slogan" ? (
                             <div className="space-y-3 w-full max-w-2xl">
                                 {[1, 2, 3].map(i => (
-                                    <Card key={i}>
+                                    <Card key={i} className="hover:shadow-lg transition-all duration-300 border border-slate-100 rounded-2xl">
+
                                         <CardContent className="p-6">
                                             <Skeleton className="h-6 w-full" />
                                         </CardContent>
@@ -350,9 +356,10 @@ export default function BrandingSuite() {
                         ) : (
                             <div className="space-y-3 w-full max-w-2xl">
                                 {slogans.map((slogan, i) => (
-                                    <Card key={i}>
+                                    <Card key={i} className="hover:shadow-lg transition-all duration-300 border border-slate-100 rounded-2xl">
+
                                         <CardContent className="p-6 flex justify-between items-center">
-                                            <span className="text-xl font-bold">
+                                            <span className="text-lg md:text-xl font-semibold tracking-tight">
                                                 {slogan}
                                             </span>
                                             <div className="flex gap-2">
@@ -415,7 +422,7 @@ export default function BrandingSuite() {
                             <div className="flex flex-col items-center gap-4">
                                 <img
                                     src={logoUrl}
-                                    className="w-[300px] h-[300px] rounded-xl object-cover"
+                                    className="w-[300px] h-[300px] rounded-2xl border border-slate-200 shadow-xl object-cover"
                                 />
                                 <div className="flex gap-2">
                                     <Button
@@ -436,7 +443,7 @@ export default function BrandingSuite() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="w-[300px] h-[300px] border-2 border-dashed rounded-xl flex items-center justify-center text-slate-400">
+                            <div className="w-[300px] h-[300px] border-2 border-dashed rounded-2xl flex flex-col items-center justify-center text-slate-400 bg-white shadow-inner">
                                 <ImageIcon
                                     size={48}
                                     className="opacity-20"
@@ -462,7 +469,7 @@ export default function BrandingSuite() {
                         {savedAssets.map(asset => (
                             <Card
                                 key={asset.id}
-                                className="relative group overflow-hidden"
+                                className="relative group overflow-hidden rounded-2xl border border-slate-100 shadow-md hover:shadow-xl transition-all"
                             >
                                 <Button
                                     variant="destructive"
@@ -487,7 +494,7 @@ export default function BrandingSuite() {
                                         <span className="text-xs font-bold text-blue-600 uppercase">
                                             {asset.asset_type}
                                         </span>
-                                        <p className="text-lg font-medium text-slate-900 mt-2">
+                                        <p className="text-base font-semibold text-slate-900 mt-2 leading-snug">
                                             {asset.content}
                                         </p>
                                     </CardContent>

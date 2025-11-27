@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Trash2, Wand2, CheckCircle, Clock, Circle } from "lucide-react";
@@ -10,31 +10,24 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 export default function TaskManager() {
   const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  
-  // AI Generator State
   const [aiGoal, setAiGoal] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
 
-  // 1. Fetch Tasks
   async function fetchTasks() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const res = await fetch(`http://localhost:8000/tasks/${user.id}`);
     const data = await res.json();
     setTasks(data);
-    setLoading(false);
   }
 
   useEffect(() => { fetchTasks(); }, []);
 
-  // 2. Add Manual Task
   const handleAddTask = async () => {
     if (!newTaskTitle) return;
     const { data: { user } } = await supabase.auth.getUser();
-    
     await fetch("http://localhost:8000/tasks/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -44,36 +37,30 @@ export default function TaskManager() {
     fetchTasks();
   };
 
-  // 3. AI Auto-Plan
   const handleAiGenerate = async () => {
     setAiLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    
-    // Get suggestions
     const res = await fetch("http://localhost:8000/tasks/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user?.id, goal: aiGoal })
     });
     const data = await res.json();
-    
-    // Add them to DB one by one
-    for (const taskTitle of data.tasks) {
-       await fetch("http://localhost:8000/tasks/add", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: user?.id, title: taskTitle, status: "todo" })
-       });
+
+    for (const t of data.tasks) {
+      await fetch("http://localhost:8000/tasks/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: user?.id, title: t, status: "todo" })
+      });
     }
-    
+
     setAiLoading(false);
     setIsAiOpen(false);
     fetchTasks();
   };
 
-  // 4. Move Status
   const updateStatus = async (id: string, newStatus: string) => {
-    // Optimistic Update (Update UI immediately)
     setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
     await fetch(`http://localhost:8000/tasks/${id}?status=${newStatus}`, { method: "PUT" });
   };
@@ -83,85 +70,142 @@ export default function TaskManager() {
     await fetch(`http://localhost:8000/tasks/${id}`, { method: "DELETE" });
   };
 
-  // Helper to render a column
-  const TaskColumn = ({ title, status, icon: Icon, color }: any) => (
-    <div className="flex-1 min-w-[300px] bg-slate-50/50 rounded-xl p-4 border border-slate-100">
-        <div className="flex items-center gap-2 mb-4">
-            <Icon className={`w-5 h-5 ${color}`} />
-            <h3 className="font-bold text-slate-700">{title}</h3>
-            <span className="ml-auto text-xs font-bold bg-slate-200 px-2 py-1 rounded-full text-slate-600">
-                {tasks.filter(t => t.status === status).length}
-            </span>
-        </div>
-        <div className="space-y-3">
-            {tasks.filter(t => t.status === status).map(task => (
-                <Card key={task.id} className="cursor-grab hover:shadow-md transition-all group">
-                    <CardContent className="p-4 flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-slate-800">{task.title}</p>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100" onClick={() => handleDelete(task.id)}>
-                            <Trash2 size={14} />
-                        </Button>
-                    </CardContent>
-                    {/* Simple Move Buttons */}
-                    <div className="flex border-t border-slate-100 divide-x divide-slate-100">
-                        {status !== 'todo' && (
-                             <button onClick={() => updateStatus(task.id, 'todo')} className="flex-1 py-2 text-[10px] text-slate-500 hover:bg-slate-50 font-medium">To Do</button>
-                        )}
-                        {status !== 'in-progress' && (
-                             <button onClick={() => updateStatus(task.id, 'in-progress')} className="flex-1 py-2 text-[10px] text-slate-500 hover:bg-slate-50 font-medium">In Progress</button>
-                        )}
-                        {status !== 'done' && (
-                             <button onClick={() => updateStatus(task.id, 'done')} className="flex-1 py-2 text-[10px] text-slate-500 hover:bg-slate-50 font-medium">Done</button>
-                        )}
-                    </div>
-                </Card>
-            ))}
-        </div>
-    </div>
-  );
-
   return (
-    <div className="space-y-6 h-full flex flex-col">
-      <div className="flex justify-between items-center">
+    <div className="space-y-10 h-full flex flex-col max-w-7xl mx-auto">
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
-            <h1 className="text-3xl font-bold text-slate-900">Task Board</h1>
-            <p className="text-slate-600">Track your progress to launch.</p>
+          <h1 className="text-4xl font-bold text-slate-900 tracking-tight">
+            Task Board
+          </h1>
+          <p className="text-sm text-slate-500 mt-2">AI-powered productivity engine</p>
         </div>
-        
-        <div className="flex gap-2">
-            <Dialog open={isAiOpen} onOpenChange={setIsAiOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="outline" className="text-purple-600 border-purple-200 hover:bg-purple-50">
-                        <Wand2 className="mr-2 h-4 w-4" /> AI Auto-Plan
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>What is your goal?</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <Input placeholder="e.g. Launch a marketing campaign for Nike" value={aiGoal} onChange={e => setAiGoal(e.target.value)} />
-                        <Button className="w-full bg-purple-600 hover:bg-purple-700" onClick={handleAiGenerate} disabled={aiLoading}>
-                            {aiLoading ? "Generating Plan..." : "Generate Tasks"}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        </div>
+
+        <Dialog open={isAiOpen} onOpenChange={setIsAiOpen}>
+          <DialogTrigger asChild>
+            <Button className="h-12 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg">
+              <Wand2 className="mr-2 h-5 w-5" />
+              AI Task Generator
+            </Button>
+          </DialogTrigger>
+
+          <DialogContent className="rounded-3xl p-0 overflow-hidden">
+            <DialogHeader className="p-6 border-b bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+              <DialogTitle className="text-lg font-semibold">
+                Smart Task Generator
+              </DialogTitle>
+            </DialogHeader>
+            <div className="p-6 space-y-5 bg-white">
+              <Input
+                placeholder="Describe your goal..."
+                value={aiGoal}
+                onChange={(e) => setAiGoal(e.target.value)}
+                className="h-12 rounded-xl"
+              />
+              <Button
+                onClick={handleAiGenerate}
+                disabled={aiLoading}
+                className="w-full h-12 rounded-xl bg-purple-600 hover:bg-purple-700"
+              >
+                {aiLoading ? "Generating Tasks…" : "Generate Tasks"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Quick Add */}
-      <div className="flex gap-2 max-w-md">
-        <Input placeholder="Add a new task..." value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} />
-        <Button onClick={handleAddTask}><Plus className="h-4 w-4" /></Button>
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3 max-w-2xl">
+        <Input
+          placeholder="Add a high priority task..."
+          value={newTaskTitle}
+          onChange={(e) => setNewTaskTitle(e.target.value)}
+          className="h-12 rounded-xl"
+        />
+        <Button
+          onClick={handleAddTask}
+          className="h-12 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white shadow-md"
+        >
+          <Plus className="mr-1 h-5 w-5" />
+          Add Task
+        </Button>
       </div>
 
-      {/* Columns */}
-      <div className="flex-1 flex gap-6 overflow-x-auto pb-4">
-        <TaskColumn title="To Do" status="todo" icon={Circle} color="text-slate-400" />
-        <TaskColumn title="In Progress" status="in-progress" icon={Clock} color="text-blue-500" />
-        <TaskColumn title="Completed" status="done" icon={CheckCircle} color="text-green-500" />
+      {/* Board */}
+      <div className="flex-1 bg-gradient-to-b from-slate-50 to-white p-4 rounded-3xl">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+
+          {[
+            { title: "To Do", status: "todo", Icon: Circle, color: "text-slate-400" },
+            { title: "In Progress", status: "in-progress", Icon: Clock, color: "text-blue-600" },
+            { title: "Completed", status: "done", Icon: CheckCircle, color: "text-green-600" }
+          ].map(({ title, status, Icon, color }) => (
+            <div
+              key={status}
+              className="bg-white border border-slate-100 rounded-3xl p-5 shadow-lg flex flex-col"
+            >
+              {/* Column Header */}
+              <div className="flex items-center gap-3 pb-4 border-b border-slate-100 mb-4">
+                <Icon className={`h-5 w-5 ${color}`} />
+                <h3 className="font-semibold text-slate-800 text-lg">
+                  {title}
+                </h3>
+                <span className="ml-auto text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-600">
+                  {tasks.filter(t => t.status === status).length}
+                </span>
+              </div>
+
+              <div className="space-y-4 flex-1">
+                {tasks.filter(t => t.status === status).map(task => (
+                  <Card
+                    key={task.id}
+                    className="bg-white border border-slate-100 rounded-2xl hover:shadow-xl transition-all duration-300"
+                  >
+                    <CardContent className="p-4 flex flex-col gap-4">
+
+                      <div className="flex justify-between">
+                        <p className="text-sm font-semibold text-slate-800 leading-snug">
+                          {task.title}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(task.id)}
+                          className="h-7 w-7 text-slate-300 hover:text-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+
+                      <div className="flex gap-1">
+                        {status !== "todo" && (
+                          <button onClick={() => updateStatus(task.id, "todo")} className="flex-1 py-2 text-[11px] rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 font-medium">
+                            To Do
+                          </button>
+                        )}
+                        {status !== "in-progress" && (
+                          <button onClick={() => updateStatus(task.id, "in-progress")} className="flex-1 py-2 text-[11px] rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium">
+                            In Progress
+                          </button>
+                        )}
+                        {status !== "done" && (
+                          <button onClick={() => updateStatus(task.id, "done")} className="flex-1 py-2 text-[11px] rounded-lg bg-green-50 hover:bg-green-100 text-green-600 font-medium">
+                            Done
+                          </button>
+                        )}
+                      </div>
+
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ))}
+
+        </div>
       </div>
+
     </div>
   );
 }

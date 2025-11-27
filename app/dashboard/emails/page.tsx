@@ -108,105 +108,191 @@ export default function EmailGenerator() {
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[calc(100vh-100px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-100px)] max-w-7xl mx-auto">
 
-            {/* LEFT: Configuration */}
-            <div className="flex flex-col gap-4">
+            {/* LEFT: Configuration Panel */}
+            <div className="flex flex-col gap-5">
+
+                {/* Header */}
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Email Assistant</h1>
-                    <p className="text-slate-600">Draft perfect communication in seconds.</p>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+                        Email Assistant
+                    </h1>
+                    <p className="text-sm text-slate-600 mt-1">
+                        Generate high-converting client emails in seconds.
+                    </p>
                 </div>
 
-                <Card className="flex-1">
-                    <CardHeader>
-                        <CardTitle>Email Settings</CardTitle>
+                <Card className="flex-1 border border-slate-200 rounded-2xl shadow-sm bg-white">
+                    <CardHeader className="border-b">
+                        <CardTitle className="text-base font-semibold">
+                            Email Configuration
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+
+                    <CardContent className="space-y-6 pt-6">
+
+                        {/* Client Select */}
                         <div className="space-y-2">
-                            <Label>Recipient (Client)</Label>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500">
+                                Recipient
+                            </Label>
                             <Select onValueChange={setSelectedClientName}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select from CRM..." />
+                                <SelectTrigger className="h-12 rounded-xl">
+                                    <SelectValue placeholder="Select from CRM" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {clients.map(c => (
-                                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                                        <SelectItem key={c.id} value={c.name}>
+                                            {c.name}
+                                        </SelectItem>
                                     ))}
-                                    <SelectItem value="Potential Client">Generic / New Lead</SelectItem>
+                                    <SelectItem value="Potential Client">
+                                        New / Potential Client
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
+                        {/* Email Type */}
                         <div className="space-y-2">
-                            <Label>Email Type</Label>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500">
+                                Email Type
+                            </Label>
                             <Select value={emailType} onValueChange={setEmailType}>
-                                <SelectTrigger>
+                                <SelectTrigger className="h-12 rounded-xl">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Cold Outreach">Cold Outreach (Sales)</SelectItem>
-                                    <SelectItem value="Follow Up">Follow Up (No Reply)</SelectItem>
-                                    <SelectItem value="Proposal Delivery">Sending a Proposal</SelectItem>
+                                    <SelectItem value="Cold Outreach">Cold Outreach</SelectItem>
+                                    <SelectItem value="Follow Up">Follow Up</SelectItem>
+                                    <SelectItem value="Proposal Delivery">Proposal Delivery</SelectItem>
                                     <SelectItem value="Payment Reminder">Payment Reminder</SelectItem>
-                                    <SelectItem value="Welcome / Onboarding">Welcome New Client</SelectItem>
+                                    <SelectItem value="Welcome / Onboarding">Client Onboarding</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
 
+                        {/* Context */}
                         <div className="space-y-2">
-                            <Label>Specific Context (Optional)</Label>
+                            <Label className="text-xs uppercase tracking-wider text-slate-500">
+                                Context
+                            </Label>
                             <Textarea
-                                placeholder="e.g. They mentioned they are busy until Monday..."
+                                placeholder="Add optional context or conversation history..."
                                 value={context}
                                 onChange={(e) => setContext(e.target.value)}
+                                className="min-h-[120px] rounded-xl resize-none"
                             />
                         </div>
 
-                        <Button onClick={handleGenerate} disabled={loading} className="w-full">
-                            {loading ? <Loader2 className="animate-spin mr-2" /> : <Mail className="mr-2 h-4 w-4" />}
-                            Write Email
+                        {/* Generate Button */}
+                        <Button
+                            onClick={handleGenerate}
+                            disabled={loading}
+                            className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-sm font-semibold"
+                        >
+                            {loading ? (
+                                <div className="flex items-center gap-2">
+                                    <Loader2 className="animate-spin h-5 w-5" />
+                                    Generating Email…
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <Mail className="h-4 w-4" />
+                                    Generate Email
+                                </div>
+                            )}
                         </Button>
+
                     </CardContent>
                 </Card>
             </div>
 
-            {/* RIGHT: Preview */}
-            <div className="flex flex-col gap-4">
-                <h2 className="text-xl font-semibold text-slate-900 h-[28px]">Preview</h2>
-                <Card className="flex-1 bg-slate-50 border-slate-200">
-                    <CardContent className="p-6 h-full flex flex-col">
+            {/* RIGHT: Preview Panel */}
+            <div className="flex flex-col gap-5">
+
+                <h2 className="text-lg font-semibold text-slate-900">
+                    Live Preview
+                </h2>
+
+                <Card className="flex-1 border border-slate-200 rounded-2xl shadow-sm bg-white overflow-hidden">
+                    <CardContent className="p-8 h-full flex flex-col">
+
                         {result ? (
-                            <div className="flex flex-col h-full gap-4">
-                                <div className="border-b pb-4">
-                                    <span className="text-slate-500 text-sm font-medium uppercase">Subject:</span>
-                                    <p className="font-semibold text-slate-900 text-lg">{result.subject}</p>
+                            <div className="flex flex-col h-full">
+
+                                {/* Subject */}
+                                <div className="border-b pb-4 mb-4">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                                        Subject
+                                    </p>
+                                    <h3 className="text-lg font-bold text-slate-900 mt-1">
+                                        {result.subject}
+                                    </h3>
                                 </div>
-                                <div className="flex-1 whitespace-pre-wrap text-slate-700 leading-relaxed font-sans">
+
+                                {/* Body */}
+                                <div className="flex-1 whitespace-pre-wrap text-slate-700 text-sm leading-relaxed font-sans">
                                     {result.body}
                                 </div>
 
-                                <div className="flex gap-3 pt-4 border-t">
-                                    <Button variant="outline" className="flex-1" onClick={handleCopy}>
-                                        {copied ? <><Check className="mr-2 h-4 w-4 text-green-600" /> Copied</> : <><Copy className="mr-2 h-4 w-4" /> Copy Text</>}
-                                    </Button>
-                                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={handleOpenMail}>
-                                        Open in Gmail/Mail
-                                    </Button>
-                                    <Button variant="outline" className="flex-1" onClick={handleSave} disabled={saveLoading}>
-                                        <Save className="mr-2 h-4 w-4" /> {saveLoading ? "Saving..." : "Save Draft"}
-                                    </Button>
+                                {/* Actions */}
+                                <div className="pt-6 mt-6 border-t flex flex-col gap-3">
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <Button
+                                            variant="outline"
+                                            className="rounded-xl h-11"
+                                            onClick={handleCopy}
+                                        >
+                                            {copied ? (
+                                                <>
+                                                    <Check className="mr-2 h-4 w-4 text-green-600" />
+                                                    Copied
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Copy className="mr-2 h-4 w-4" />
+                                                    Copy
+                                                </>
+                                            )}
+                                        </Button>
+
+                                        <Button
+                                            className="rounded-xl h-11 bg-blue-600 hover:bg-blue-700"
+                                            onClick={handleOpenMail}
+                                        >
+                                            Open in Mail
+                                        </Button>
+
+                                        <Button
+                                            variant="outline"
+                                            className="rounded-xl h-11"
+                                            onClick={handleSave}
+                                            disabled={saveLoading}
+                                        >
+                                            <Save className="mr-2 h-4 w-4" />
+                                            {saveLoading ? "Saving…" : "Save Draft"}
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                                <Mail size={48} className="mb-4 opacity-20" />
-                                <p>Configure settings to generate a draft.</p>
+                            /* Empty State */
+                            <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center gap-3">
+                                <Mail size={48} className="opacity-20" />
+                                <p className="text-sm">
+                                    Configure settings and generate your first email.
+                                </p>
                             </div>
                         )}
+
                     </CardContent>
                 </Card>
             </div>
 
         </div>
     );
+
 }

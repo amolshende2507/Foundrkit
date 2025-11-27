@@ -66,29 +66,39 @@ export default function ProposalDetail({ params }: { params: { id: string } }) {
     if (!proposal) return <div className="p-10">Proposal not found</div>;
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto space-y-8">
 
             {/* Header */}
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" onClick={() => router.back()}>
-                        <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-200 pb-6">
+
+                {/* Left */}
+                <div className="flex items-start gap-4">
+                    <Button
+                        variant="ghost"
+                        className="h-10 px-3 rounded-xl text-sm"
+                        onClick={() => router.back()}
+                    >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Proposals
                     </Button>
+
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">{proposal.client_name}</h1>
-                        <p className="text-slate-500 text-sm">
-                            Project: {proposal.project_details?.substring(0, 50)}...
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+                            {proposal.client_name}
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1 max-w-2xl line-clamp-2">
+                            {proposal.project_details}
                         </p>
                     </div>
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-2">
-                    <span className="px-3 py-2 bg-yellow-100 text-yellow-800 rounded-md text-sm font-medium flex items-center">
-                        Status: {proposal.status}
+                {/* Right Actions */}
+                <div className="flex items-center gap-2">
+                    <span className="px-4 py-2 rounded-xl text-xs font-bold tracking-wide 
+          bg-amber-100 text-amber-800">
+                        {proposal.status}
                     </span>
 
-                    {/* The PDF Download Button */}
                     <PDFDownloadLink
                         document={
                             <ProposalPDF
@@ -100,29 +110,47 @@ export default function ProposalDetail({ params }: { params: { id: string } }) {
                         fileName={`${proposal.client_name}_Proposal.pdf`}
                     >
                         {({ loading }) => (
-                            <Button className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                            <Button
+                                disabled={loading}
+                                className="h-11 px-5 rounded-xl bg-slate-900 hover:bg-slate-800"
+                            >
                                 <Download className="mr-2 h-4 w-4" />
-                                {loading ? "Preparing..." : "Download PDF"}
+                                {loading ? "Generating..." : "Download PDF"}
                             </Button>
                         )}
                     </PDFDownloadLink>
                 </div>
             </div>
 
-            {/* Content Viewer */}
-            <div className="grid grid-cols-3 gap-6">
-                <Card className="col-span-3 md:col-span-2 bg-white border-slate-200 shadow-sm">
-                    <CardContent className="p-10">
+            {/* Main Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                {/* Document Viewer */}
+                <Card className="lg:col-span-2 border border-slate-200 rounded-2xl shadow-sm bg-white">
+                    <CardContent className="p-12">
+
                         {isEditing ? (
                             <div className="space-y-4">
                                 <textarea
-                                    className="w-full h-[500px] p-4 border rounded-md font-mono text-sm"
+                                    className="w-full min-h-[520px] p-5 border border-slate-200 rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
                                     value={editContent}
                                     onChange={(e) => setEditContent(e.target.value)}
                                 />
-                                <div className="flex gap-2 justify-end">
-                                    <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
-                                    <Button onClick={handleUpdate}>Save Changes</Button>
+
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        variant="outline"
+                                        className="rounded-xl"
+                                        onClick={() => setIsEditing(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        className="rounded-xl bg-slate-900 hover:bg-slate-800"
+                                        onClick={handleUpdate}
+                                    >
+                                        Save Changes
+                                    </Button>
                                 </div>
                             </div>
                         ) : (
@@ -132,28 +160,52 @@ export default function ProposalDetail({ params }: { params: { id: string } }) {
                                 </ReactMarkdown>
                             </div>
                         )}
+
                     </CardContent>
                 </Card>
 
-                {/* Sidebar Info */}
-                <Card className="col-span-3 md:col-span-1 h-fit">
-                    <CardContent className="p-6 space-y-4">
-                        <h3 className="font-semibold text-slate-900">Meta Data</h3>
-                        <div className="text-sm space-y-2">
+                {/* Right Sidebar */}
+                <Card className="border border-slate-200 rounded-2xl shadow-sm bg-white h-fit">
+                    <CardContent className="p-6 space-y-6">
+
+                        <div>
+                            <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">
+                                Document Metadata
+                            </h3>
+                        </div>
+
+                        <div className="space-y-4 text-sm">
                             <div className="flex justify-between">
-                                <span className="text-slate-500">Created:</span>
-                                <span>{new Date(proposal.created_at).toLocaleDateString()}</span>
+                                <span className="text-slate-500">Created</span>
+                                <span className="font-medium">
+                                    {new Date(proposal.created_at).toLocaleDateString()}
+                                </span>
                             </div>
+
                             <div className="flex justify-between">
-                                <span className="text-slate-500">Type:</span>
-                                <span>Markdown / PDF</span>
+                                <span className="text-slate-500">Format</span>
+                                <span className="font-medium">Markdown / PDF</span>
+                            </div>
+
+                            <div className="flex justify-between">
+                                <span className="text-slate-500">Client</span>
+                                <span className="font-medium">
+                                    {proposal.client_name}
+                                </span>
                             </div>
                         </div>
-                        <Button variant="outline" className="w-full mt-4" onClick={() => setIsEditing(true)}>
-                            {isEditing ? "Editing..." : "Edit Content"}
+
+                        <Button
+                            variant="outline"
+                            className="w-full h-11 rounded-xl"
+                            onClick={() => setIsEditing(true)}
+                        >
+                            Edit Proposal
                         </Button>
+
                     </CardContent>
                 </Card>
+
             </div>
         </div>
     );

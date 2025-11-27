@@ -346,28 +346,46 @@ Client Context/Notes: ${selectedClient.notes || "None"}
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[calc(100vh-110px)] max-w-7xl mx-auto">
-      {/* LEFT */}
-      <div className="flex flex-col gap-4">
+
+      {/* LEFT PANEL – CONTROL ZONE */}
+      <div className="flex flex-col gap-5">
+
+        {/* Page Title */}
         <div>
-          <h1 className="text-4xl font-bold tracking-tight">Proposal Engine</h1>
-          <p className="text-slate-500">Generate client-ready proposals with AI.</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            Proposal Generator
+          </h1>
+          <p className="text-sm text-slate-600 mt-1">
+            Create client-ready proposals using AI precision.
+          </p>
         </div>
 
-        <Card className="flex-1 shadow-sm border-slate-200">
-          <CardHeader>
-            <CardTitle>Configuration</CardTitle>
+        {/* Configuration Card */}
+        <Card className="flex-1 border border-slate-200 shadow-sm rounded-2xl">
+          <CardHeader className="border-b">
+            <CardTitle className="text-base font-semibold text-slate-900">
+              Configuration Panel
+            </CardTitle>
           </CardHeader>
 
-          <CardContent className="space-y-5">
+          <CardContent className="space-y-6 pt-6">
+
+            {/* Client Selector */}
             <div className="space-y-2">
-              <Label>Select Client</Label>
-              <Select onValueChange={(value) => {
-                const client = clients.find(c => c.id === value);
-                setSelectedClient(client);
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Choose a client..." />
+              <Label className="text-xs uppercase tracking-wider text-slate-500">
+                Client
+              </Label>
+
+              <Select
+                onValueChange={(value) => {
+                  const client = clients.find(c => c.id === value);
+                  setSelectedClient(client);
+                }}
+              >
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Select client profile" />
                 </SelectTrigger>
+
                 <SelectContent>
                   {clients.map((client) => (
                     <SelectItem key={client.id} value={client.id}>
@@ -378,58 +396,72 @@ Client Context/Notes: ${selectedClient.notes || "None"}
               </Select>
 
               {selectedClient && (
-                <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
-                  AI Context: {selectedClient.notes || selectedClient.industry}
-                </p>
+                <div className="text-xs bg-slate-50 border border-slate-200 p-3 rounded-xl text-slate-600">
+                  <strong className="text-slate-800">AI Context:</strong>{" "}
+                  {selectedClient.notes || selectedClient.industry}
+                </div>
               )}
             </div>
 
+            {/* Scope Input */}
             <div className="space-y-2">
-              <Label>Project Scope</Label>
+              <Label className="text-xs uppercase tracking-wider text-slate-500">
+                Project Scope
+              </Label>
+
               <Textarea
-                placeholder="Describe the project goals, scope, and deliverables..."
-                className="h-44 resize-none"
+                placeholder="Describe goals, scope, deliverables and timeline..."
+                className="h-44 resize-none rounded-xl text-sm"
                 value={projectDetails}
                 onChange={(e) => setProjectDetails(e.target.value)}
               />
             </div>
 
+            {/* Generate Button */}
             <Button
-              type="button"
               onClick={handleGenerate}
               disabled={loading}
-              className="w-full text-base py-6 bg-blue-600 hover:bg-blue-700"
+              className="
+              w-full h-14 text-sm font-semibold rounded-xl
+              bg-slate-900 hover:bg-slate-800
+            "
             >
               {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Generating Proposal...
-                </>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Generating proposal…
+                </div>
               ) : (
-                <>
-                  <Wand2 className="mr-2 h-5 w-5" />
-                  Generate Smart Proposal
-                </>
+                <div className="flex items-center gap-2">
+                  <Wand2 className="h-5 w-5" />
+                  Generate Proposal
+                </div>
               )}
             </Button>
+
           </CardContent>
         </Card>
       </div>
 
-      {/* RIGHT */}
-      <div className="flex flex-col gap-4">
+      {/* RIGHT PANEL – PREVIEW ZONE */}
+      <div className="flex flex-col gap-5">
+
+        {/* Preview Header */}
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Live Preview</h2>
+          <h2 className="text-lg font-semibold text-slate-900">
+            Live Document Preview
+          </h2>
 
           {generatedProposal && (
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+
               <Button
-                type="button"
                 variant="outline"
                 onClick={handleSave}
                 disabled={saveLoading}
+                className="h-11 rounded-xl text-sm"
               >
-                {saveLoading ? "Saving..." : "Save Draft"}
+                {saveLoading ? "Saving…" : "Save Draft"}
               </Button>
 
               <PDFDownloadLink
@@ -443,18 +475,24 @@ Client Context/Notes: ${selectedClient.notes || "None"}
                 fileName="proposal.pdf"
               >
                 {({ loading }) => (
-                  <Button type="button" disabled={loading}>
+                  <Button
+                    disabled={loading}
+                    className="h-11 rounded-xl text-sm bg-blue-600 hover:bg-blue-700"
+                  >
                     Download PDF
                   </Button>
                 )}
               </PDFDownloadLink>
+
             </div>
           )}
         </div>
 
-        <Card className="flex-1 bg-white border-slate-200 shadow-sm overflow-hidden">
-          <CardContent className="h-full overflow-y-auto p-8 prose prose-slate max-w-none">
-            {/* Skeleton during generation */}
+        {/* Live Preview Card */}
+        <Card className="flex-1 border border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+          <CardContent className="h-full overflow-y-auto p-10 prose prose-slate max-w-none bg-white">
+
+            {/* Loading Skeleton */}
             {loading && (
               <div className="space-y-4">
                 <Skeleton className="h-6 w-2/3" />
@@ -465,23 +503,31 @@ Client Context/Notes: ${selectedClient.notes || "None"}
               </div>
             )}
 
-            {/* Render proposal */}
+            {/* AI Output */}
             {!loading && generatedProposal && (
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {generatedProposal}
               </ReactMarkdown>
             )}
 
-            {/* Empty state */}
+            {/* Empty State */}
             {!loading && !generatedProposal && (
               <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
-                <p>Start by selecting a client</p>
-                <p className="text-xs">Your proposal will appear here</p>
+                <div className="border border-dashed border-slate-300 p-6 rounded-xl text-center">
+                  <p className="text-sm font-medium text-slate-600">
+                    No proposal generated yet
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Select a client and enter project scope to begin
+                  </p>
+                </div>
               </div>
             )}
+
           </CardContent>
         </Card>
       </div>
+
     </div>
   );
 }

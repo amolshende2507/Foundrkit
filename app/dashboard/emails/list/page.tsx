@@ -24,7 +24,7 @@ export default function EmailList() {
   }, []);
 
   const handleDelete = async (id: string) => {
-    if(!confirm("Delete this draft?")) return;
+    if (!confirm("Delete this draft?")) return;
     await fetch(`http://localhost:8000/emails/${id}`, { method: "DELETE" });
     setEmails(emails.filter(e => e.id !== id));
   };
@@ -35,44 +35,106 @@ export default function EmailList() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 max-w-7xl mx-auto">
+
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <h1 className="text-3xl font-bold text-slate-900">Email Drafts</h1>
-            <p className="text-slate-600">Saved templates and follow-ups.</p>
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+            Email Drafts
+          </h1>
+          <p className="text-sm text-slate-600 mt-1">
+            Saved email templates and follow-ups.
+          </p>
         </div>
+
         <Link href="/dashboard/emails">
-            <Button><Plus className="mr-2 h-4 w-4" /> New Email</Button>
+          <Button className="h-11 px-5 rounded-xl bg-slate-900 hover:bg-slate-800">
+            <Plus className="mr-2 h-4 w-4" />
+            New Email
+          </Button>
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {emails.map((email) => (
-          <Card key={email.id} className="hover:shadow-md transition-all">
-            <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                    <div>
-                        <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">{email.email_type}</span>
-                        <CardTitle className="text-lg mt-1">{email.subject}</CardTitle>
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-red-400" onClick={() => handleDelete(email.id)}>
-                        <Trash2 size={16} />
-                    </Button>
+      {/* Loading State */}
+      {loading && (
+        <div className="text-sm text-slate-500">Loading email drafts…</div>
+      )}
+
+      {/* Empty State */}
+      {!loading && emails.length === 0 && (
+        <Card className="border border-dashed border-slate-300 bg-white">
+          <CardContent className="py-16 flex flex-col items-center text-center">
+            <Mail className="h-10 w-10 text-slate-300 mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900">
+              No email drafts
+            </h3>
+            <p className="text-sm text-slate-500 mt-2 mb-4">
+              Create your first draft to get started.
+            </p>
+            <Link href="/dashboard/emails">
+              <Button className="bg-slate-900 hover:bg-slate-800 rounded-xl">
+                Create Email
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Drafts Grid */}
+      {!loading && emails.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {emails.map((email) => (
+            <Card
+              key={email.id}
+              className="border border-slate-200 rounded-2xl bg-white hover:shadow-md transition-all"
+            >
+              <CardContent className="p-6">
+
+                {/* Top Meta */}
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                      {email.email_type}
+                    </span>
+                    <h3 className="text-base font-semibold text-slate-900 mt-1 leading-tight">
+                      {email.subject}
+                    </h3>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl"
+                    onClick={() => handleDelete(email.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
                 </div>
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm text-slate-500 line-clamp-3 mb-4 font-sans whitespace-pre-wrap">
-                    {email.body}
+
+                {/* Body Preview */}
+                <p className="text-sm text-slate-600 line-clamp-4 mb-5 whitespace-pre-wrap leading-relaxed">
+                  {email.body}
                 </p>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="w-full" onClick={() => handleCopy(email.subject, email.body)}>
-                        <Copy className="mr-2 h-4 w-4" /> Copy Text
-                    </Button>
+
+                {/* Actions */}
+                <div>
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 rounded-xl text-sm"
+                    onClick={() => handleCopy(email.subject, email.body)}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copy Content
+                  </Button>
                 </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
+
 }
