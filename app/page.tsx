@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles, LineChart, Users, Brain, Clock } from "lucide-react";
 import { SiteHeader } from "@/components/landing/Header"; // Import Component
 import { SiteFooter } from "@/components/landing/Footer"; // Import Component
+// <--- Import this
+import { FAQ } from "@/components/landing/FAQ"; 
+import { Pricing } from "@/components/landing/Pricing";
 
 const fadeUp = {
     hidden: { opacity: 0, y: 30 },
@@ -30,14 +33,54 @@ const steps = [
     { step: "03", title: "Run your day from one dashboard", text: "See proposals, tasks, clients, and insights in a single view built for momentum." },
 ];
 
+const pricingPlans = [
+    {
+        name: "Starter",
+        price: "0",
+        period: "/month",
+        description: "Perfect for exploring the AI tools.",
+        features: ["5 AI Proposals / mo", "Basic Task Board", "Standard Support", "1 Client Profile"],
+        cta: "Start Free",
+        popular: false,
+    },
+    {
+        name: "Pro Founder",
+        price: "29",
+        period: "/month",
+        description: "For founders running a serious operation.",
+        features: ["Unlimited Proposals", "Advanced Co-Founder Chat", "Priority Support", "Unlimited Clients", "Export to PDF"],
+        cta: "Get Pro",
+        popular: true,
+    },
+];
+
+const faqs = [
+    {
+        q: "Is my business data private?",
+        a: "100%. Your brand strategy, client notes, and proposals are encrypted and only accessible by you. We do not use your data to train public models.",
+    },
+    {
+        q: "Can I export documents?",
+        a: "Yes! You can export proposals as professional PDFs and copy email drafts directly to your clipboard.",
+    },
+    {
+        q: "Does it work on mobile?",
+        a: "Absolutely. FoundrKit is fully responsive, so you can manage tasks and chat with your AI co-founder on the go.",
+    },
+    {
+        q: "What AI model do you use?",
+        a: "We leverage advanced LLMs (like Gemini/GPT-4) tuned specifically for business logic, strategy, and professional writing.",
+    },
+];
+
 export default function Home() {
     return (
         <div className="min-h-screen bg-[#020617] text-slate-50 relative overflow-hidden font-sans">
             {/* Background glows */}
-            <div className="pointer-events-none absolute inset-0">
-                <div className="absolute -top-32 -right-16 h-72 w-72 rounded-full bg-purple-500/30 blur-3xl" />
-                <div className="absolute top-64 -left-20 h-80 w-80 rounded-full bg-sky-500/20 blur-3xl" />
-                <div className="absolute bottom-0 right-1/3 h-64 w-64 rounded-full bg-emerald-400/20 blur-3xl" />
+            <div className="pointer-events-none fixed inset-0 z-0">
+                <div className="absolute -top-32 -right-16 h-72 w-72 rounded-full bg-purple-500/30 blur-3xl opacity-50" />
+                <div className="absolute top-64 -left-20 h-80 w-80 rounded-full bg-sky-500/20 blur-3xl opacity-50" />
+                <div className="absolute bottom-0 right-1/3 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl opacity-30" />
             </div>
 
             <div className="relative z-10">
@@ -139,9 +182,16 @@ export default function Home() {
                             ))}
                         </div>
                     </motion.section>
+                     <div className="relative">
+                        {/* Extra glow just for pricing */}
+                        <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-96 w-96 rounded-full bg-purple-500/10 blur-[100px] -z-10" />
+                        
+                        <Pricing />
+                    </div>
+                    <FAQ />
 
                     {/* CTA FOOTER */}
-                    <motion.section className="mt-32 pt-16" variants={fadeUp} initial="hidden" whileInView="show">
+                    <motion.section className="mt-32 pt-16 relative" variants={fadeUp} initial="hidden" whileInView="show">
                         <div className="rounded-3xl bg-gradient-to-r from-purple-900/40 to-sky-900/40 border border-white/10 p-12 text-center relative overflow-hidden">
                             <div className="relative z-10">
                                 <h3 className="text-3xl font-bold mb-4">Ready to build your empire?</h3>
