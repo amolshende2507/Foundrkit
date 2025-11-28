@@ -5,10 +5,30 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Send, Bot, User, Plus, MessageSquare, Trash2, Edit2, History } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Plus,
+  MessageSquare,
+  Trash2,
+  Edit2,
+  History,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export default function AdvancedChat() {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -24,15 +44,25 @@ export default function AdvancedChat() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => { fetchSessions(); }, []);
-  useEffect(() => { if (activeSessionId) fetchMessages(activeSessionId); }, [activeSessionId]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  useEffect(() => {
+    fetchSessions();
+  }, []);
+
+  useEffect(() => {
+    if (activeSessionId) fetchMessages(activeSessionId);
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const fetchSessions = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
     const res = await fetch(`http://localhost:8000/chat/sessions/${user.id}`);
     const data = await res.json();
+
     setSessions(data);
     if (!activeSessionId && data.length > 0) setActiveSessionId(data[0].id);
   };
@@ -50,7 +80,7 @@ export default function AdvancedChat() {
     const res = await fetch("http://localhost:8000/chat/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user.id, title: "New Strategy Chat" })
+      body: JSON.stringify({ user_id: user.id, title: "New Strategy Chat" }),
     });
 
     const newSession = await res.json();
@@ -66,7 +96,7 @@ export default function AdvancedChat() {
 
     const userMsg = input;
     setInput("");
-    setMessages(prev => [...prev, { role: "user", content: userMsg }]);
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -77,8 +107,8 @@ export default function AdvancedChat() {
       body: JSON.stringify({
         user_id: user?.id,
         session_id: activeSessionId,
-        message: userMsg
-      })
+        message: userMsg,
+      }),
     });
 
     await fetchMessages(activeSessionId);
@@ -88,48 +118,78 @@ export default function AdvancedChat() {
   const handleDeleteSession = async (e: any, id: string) => {
     e.stopPropagation();
     if (!confirm("Delete this chat?")) return;
-    await fetch(`http://localhost:8000/chat/sessions/${id}`, { method: "DELETE" });
-    setSessions(sessions.filter(s => s.id !== id));
+
+    await fetch(`http://localhost:8000/chat/sessions/${id}`, {
+      method: "DELETE",
+    });
+
+    setSessions(sessions.filter((s) => s.id !== id));
     if (activeSessionId === id) setActiveSessionId(null);
   };
 
   const handleRenameSession = async () => {
     if (!sessionToEdit) return;
-    await fetch(`http://localhost:8000/chat/sessions/${sessionToEdit}?title=${editTitle}`, { method: "PUT" });
-    setSessions(sessions.map(s => s.id === sessionToEdit ? { ...s, title: editTitle } : s));
+
+    await fetch(
+      `http://localhost:8000/chat/sessions/${sessionToEdit}?title=${editTitle}`,
+      { method: "PUT" }
+    );
+
+    setSessions(
+      sessions.map((s) =>
+        s.id === sessionToEdit ? { ...s, title: editTitle } : s
+      )
+    );
+
     setIsRenameOpen(false);
   };
 
   const SessionList = () => (
     <div className="flex flex-col h-full">
-      <Button className="w-full mb-4 h-12 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 shadow-lg" onClick={handleNewSession}>
+      <Button
+        className="w-full mb-4 h-12 rounded-xl bg-slate-900 dark:bg-white dark:text-black shadow-lg"
+        onClick={handleNewSession}
+      >
         <Plus className="mr-2 h-5 w-5" /> New Chat
       </Button>
 
       <div className="flex-1 space-y-2 overflow-y-auto pr-2">
-        {sessions.map(session => (
+        {sessions.map((session) => (
           <div
             key={session.id}
-            onClick={() => { setActiveSessionId(session.id); setIsMobileMenuOpen(false); }}
-            className={`group flex justify-between items-center p-3 rounded-xl cursor-pointer transition-all border 
-              ${activeSessionId === session.id
-                ? "bg-blue-50 text-blue-700 border-blue-100 shadow-md"
-                : "text-slate-600 hover:bg-slate-100 border-transparent"}
-            `}
+            onClick={() => {
+              setActiveSessionId(session.id);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`group flex justify-between items-center p-3 
+              rounded-xl cursor-pointer transition-all border 
+              ${
+                activeSessionId === session.id
+                  ? "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-700 shadow-md"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-transparent"
+              }`}
           >
             <div className="flex items-center gap-2 truncate">
-              <MessageSquare size={16} />
+              <MessageSquare size={16} className="dark:text-slate-300" />
               <span className="truncate">{session.title}</span>
             </div>
 
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-              <Edit2 size={14} className="text-slate-400 hover:text-blue-600" onClick={(e) => {
-                e.stopPropagation();
-                setSessionToEdit(session.id);
-                setEditTitle(session.title);
-                setIsRenameOpen(true);
-              }} />
-              <Trash2 size={14} className="text-slate-400 hover:text-red-600" onClick={(e) => handleDeleteSession(e, session.id)} />
+              <Edit2
+                size={14}
+                className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSessionToEdit(session.id);
+                  setEditTitle(session.title);
+                  setIsRenameOpen(true);
+                }}
+              />
+              <Trash2
+                size={14}
+                className="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                onClick={(e) => handleDeleteSession(e, session.id)}
+              />
             </div>
           </div>
         ))}
@@ -142,28 +202,37 @@ export default function AdvancedChat() {
 
       {/* Desktop Sidebar */}
       <div className="hidden md:block w-80">
-        <Card className="h-full p-4 rounded-3xl border border-slate-200 shadow-xl">
+        <Card className="h-full p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl dark:bg-slate-900/50">
           <SessionList />
         </Card>
       </div>
 
       {/* Chat Area */}
-      <Card className="flex-1 flex flex-col rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+      <Card className="flex-1 flex flex-col rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden dark:bg-slate-900/50">
 
-        {/* Mobile Top */}
-        <div className="md:hidden flex justify-between items-center p-4 border-b">
-          <div className="flex items-center gap-2 font-medium text-xs sm:text-sm text-slate-800">
-
-            <Bot size={18} className="text-blue-600" />
+        {/* Mobile Header */}
+        <div className="md:hidden flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70">
+          <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-100 text-xs sm:text-sm">
+            <Bot size={18} className="text-blue-600 dark:text-blue-400" />
             Co-Founder AI
           </div>
 
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost"><History size={20} /></Button>
+              <Button variant="ghost" className="text-slate-800 dark:text-slate-100">
+                <History size={20} />
+              </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-80">
-              <SheetHeader><SheetTitle>History</SheetTitle></SheetHeader>
+
+            <SheetContent
+              side="left"
+              className="w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800"
+            >
+              <SheetHeader>
+                <SheetTitle className="text-slate-700 dark:text-slate-200">
+                  History
+                </SheetTitle>
+              </SheetHeader>
               <SessionList />
             </SheetContent>
           </Sheet>
@@ -171,31 +240,41 @@ export default function AdvancedChat() {
 
         {/* Chat Body */}
         {!activeSessionId ? (
-          <div className="flex flex-col items-center justify-center flex-1 bg-slate-50 text-slate-400">
+          <div className="flex flex-col items-center justify-center flex-1 bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500">
             <Bot size={48} />
             <p className="mt-4 text-sm">Start a new intelligent session</p>
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6 bg-gradient-to-b from-slate-50 to-white">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 
+              bg-white dark:bg-slate-950 transition-colors">
 
               {messages.map((msg, i) => (
-                <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                <div
+                  key={i}
+                  className={`flex gap-3 ${
+                    msg.role === "user" ? "justify-end" : ""
+                  }`}
+                >
                   {msg.role === "ai" && (
-                    <div className="w-9 h-9 flex items-center justify-center bg-blue-600 text-white rounded-full shadow-md">
+                    <div className="w-9 h-9 flex items-center justify-center bg-blue-600 dark:bg-blue-500 text-white rounded-full shadow-md">
                       <Bot size={16} />
                     </div>
                   )}
 
-                  <div className={`px-4 py-2 rounded-2xl text-xs sm:text-sm max-w-[80%] shadow-md
-                    ${msg.role === "user" ? "bg-slate-900 text-white rounded-br-none"
-                      : "bg-white border text-slate-700 rounded-bl-none"}
-                  `}>
+                  <div
+                    className={`px-4 py-2 rounded-2xl text-xs sm:text-sm max-w-[80%] shadow-md
+                      ${
+                        msg.role === "user"
+                          ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-br-none"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-none"
+                      }`}
+                  >
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
 
                   {msg.role === "user" && (
-                    <div className="w-9 h-9 flex items-center justify-center bg-slate-200 text-slate-500 rounded-full shadow-md">
+                    <div className="w-9 h-9 flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-200 rounded-full shadow-md">
                       <User size={16} />
                     </div>
                   )}
@@ -204,26 +283,32 @@ export default function AdvancedChat() {
 
               {loading && (
                 <div className="flex gap-3 animate-pulse">
-                  <div className="w-9 h-9 rounded-full bg-blue-600"></div>
-                  <div className="w-24 h-10 bg-slate-200 rounded-2xl"></div>
+                  <div className="w-9 h-9 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                  <div className="w-24 h-10 bg-slate-200 dark:bg-slate-700 rounded-2xl"></div>
                 </div>
               )}
 
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input */}
-            <div className="p-4 border-t bg-white">
-              <form onSubmit={handleSend} className="flex gap-3 max-w-4xl mx-auto">
+            {/* Input Box */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <form
+                onSubmit={handleSend}
+                className="flex gap-3 max-w-4xl mx-auto"
+              >
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask anything..."
                   disabled={loading}
-                  className="flex-1 h-10 sm:h-12 rounded-xl text-xs sm:text-sm"
-
+                  className="flex-1 h-10 sm:h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
                 />
-                <Button type="submit" disabled={loading || !input.trim()} className="h-12 w-12 bg-blue-600 hover:bg-blue-700 rounded-xl">
+                <Button
+                  type="submit"
+                  disabled={loading || !input.trim()}
+                  className="h-12 w-12 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 rounded-xl"
+                >
                   <Send size={18} />
                 </Button>
               </form>
@@ -234,17 +319,27 @@ export default function AdvancedChat() {
 
       {/* Rename Dialog */}
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <DialogContent className="rounded-2xl">
+        <DialogContent className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
           <DialogHeader>
-            <DialogTitle>Rename Chat</DialogTitle>
+            <DialogTitle className="text-slate-800 dark:text-slate-200">
+              Rename Chat
+            </DialogTitle>
           </DialogHeader>
           <div className="flex gap-2 pt-4">
-            <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
-            <Button onClick={handleRenameSession}>Save</Button>
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+            />
+            <Button
+              onClick={handleRenameSession}
+              className="bg-slate-900 dark:bg-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200"
+            >
+              Save
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

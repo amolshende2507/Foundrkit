@@ -15,6 +15,7 @@ export default function EmailList() {
     async function fetchEmails() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
       const res = await fetch(`http://localhost:8000/emails/${user.id}`);
       const data = await res.json();
       setEmails(data);
@@ -26,30 +27,30 @@ export default function EmailList() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this draft?")) return;
     await fetch(`http://localhost:8000/emails/${id}`, { method: "DELETE" });
-    setEmails(emails.filter(e => e.id !== id));
+    setEmails(emails.filter((e) => e.id !== id));
   };
 
   const handleCopy = (subject: string, body: string) => {
     navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
-    alert("Copied to clipboard!");
+    alert("Email copied to clipboard!");
   };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
 
-      {/* Header */}
+      {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             Email Drafts
           </h1>
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
             Saved email templates and follow-ups.
           </p>
         </div>
 
         <Link href="/dashboard/emails">
-          <Button className="h-11 px-5 rounded-xl bg-slate-900 hover:bg-slate-800">
+          <Button className="h-11 px-5 rounded-xl bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100">
             <Plus className="mr-2 h-4 w-4" />
             New Email
           </Button>
@@ -58,22 +59,23 @@ export default function EmailList() {
 
       {/* Loading State */}
       {loading && (
-        <div className="text-sm text-slate-500">Loading email drafts…</div>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Loading email drafts…</p>
       )}
 
       {/* Empty State */}
       {!loading && emails.length === 0 && (
-        <Card className="border border-dashed border-slate-300 bg-white">
+        <Card className="border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-2xl">
           <CardContent className="py-16 flex flex-col items-center text-center">
-            <Mail className="h-10 w-10 text-slate-300 mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900">
+            <Mail className="h-10 w-10 text-slate-300 dark:text-slate-600 mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
               No email drafts
             </h3>
-            <p className="text-sm text-slate-500 mt-2 mb-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 mb-4">
               Create your first draft to get started.
             </p>
+
             <Link href="/dashboard/emails">
-              <Button className="bg-slate-900 hover:bg-slate-800 rounded-xl">
+              <Button className="h-11 px-5 rounded-xl bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100">
                 Create Email
               </Button>
             </Link>
@@ -81,23 +83,23 @@ export default function EmailList() {
         </Card>
       )}
 
-      {/* Drafts Grid */}
+      {/* Emails Grid */}
       {!loading && emails.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {emails.map((email) => (
             <Card
               key={email.id}
-              className="border border-slate-200 rounded-2xl bg-white hover:shadow-md transition-all"
+              className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl hover:shadow-md dark:hover:shadow-lg transition-all"
             >
               <CardContent className="p-6">
 
-                {/* Top Meta */}
+                {/* Header Row */}
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <span className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                    <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                       {email.email_type}
                     </span>
-                    <h3 className="text-base font-semibold text-slate-900 mt-1 leading-tight">
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mt-1 leading-tight">
                       {email.subject}
                     </h3>
                   </div>
@@ -105,29 +107,27 @@ export default function EmailList() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-xl"
                     onClick={() => handleDelete(email.id)}
                   >
                     <Trash2 size={16} />
                   </Button>
                 </div>
 
-                {/* Body Preview */}
-                <p className="text-sm text-slate-600 line-clamp-4 mb-5 whitespace-pre-wrap leading-relaxed">
+                {/* Body Snippet */}
+                <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-4 mb-5 whitespace-pre-wrap leading-relaxed">
                   {email.body}
                 </p>
 
-                {/* Actions */}
-                <div>
-                  <Button
-                    variant="outline"
-                    className="w-full h-11 rounded-xl text-sm"
-                    onClick={() => handleCopy(email.subject, email.body)}
-                  >
-                    <Copy className="mr-2 h-4 w-4" />
-                    Copy Content
-                  </Button>
-                </div>
+                {/* Action Buttons */}
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-xl dark:border-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  onClick={() => handleCopy(email.subject, email.body)}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Content
+                </Button>
 
               </CardContent>
             </Card>
@@ -136,5 +136,4 @@ export default function EmailList() {
       )}
     </div>
   );
-
 }
