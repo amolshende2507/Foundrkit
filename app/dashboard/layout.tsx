@@ -57,17 +57,25 @@ export default function DashboardLayout({
         href={item.href}
         onClick={() => setIsOpen(false)}
         className={`group relative flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300
-          ${
-            isActive
-              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-[1.02]"
-              : "text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/50 hover:scale-[1.01]"
+          ${isActive
+            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-[1.02]"
+            : "text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/50 hover:scale-[1.01]"
           }`}
       >
         <Icon
           size={18}
-          className="group-hover:rotate-3 transition-transform text-slate-700 dark:text-slate-300"
+          className={`transition-transform group-hover:rotate-3 
+          ${isActive
+              ? "text-white"
+              : "text-slate-700 dark:text-slate-300"
+            }`}
         />
-        <span className="tracking-wide">{item.name}</span>
+        <span
+          className={`tracking-wide 
+          ${isActive ? "text-white" : "text-slate-700 dark:text-slate-300"}`}
+        >
+          {item.name}
+        </span>
 
         {!isActive && (
           <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition border border-slate-200 dark:border-slate-700"></div>
@@ -79,13 +87,12 @@ export default function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-950 dark:to-black transition-colors duration-300">
 
-      {/* DESKTOP SIDEBAR */}
+      {/* SIDEBAR */}
       <aside
         className="hidden md:flex w-72 flex-col fixed inset-y-0 z-40
         bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl 
         border-r border-slate-200 dark:border-slate-800 shadow-xl transition-colors"
       >
-        {/* LOGO */}
         <div className="p-6 flex items-center gap-3 border-b border-slate-200 dark:border-slate-800">
           <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg animate-pulse">
             <span className="text-white font-bold text-lg">F</span>
@@ -106,26 +113,39 @@ export default function DashboardLayout({
           ))}
         </nav>
 
-        {/* BOTTOM SECTION */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center gap-4">
           <Button
             variant="ghost"
-            className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition"
+            className="flex-1 justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition"
             onClick={handleLogout}
           >
             <LogOut size={18} className="mr-2" />
             Logout
           </Button>
 
-          {/* THEME TOGGLE */}
-          <ModeToggle />
+          <div
+            className="relative group rounded-xl p-2 cursor-pointer
+             bg-slate-200/50 dark:bg-slate-800/50 
+             hover:bg-gradient-to-tr hover:from-blue-600 hover:to-indigo-600
+             transition-all duration-300 hover:scale-105"
+          >
+            {/* Glow ring on hover */}
+            <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 
+                  bg-gradient-to-r from-indigo-500 to-blue-600 blur-md 
+                  transition-all duration-500"></div>
+
+            {/* Button core */}
+            <div className="relative z-10 flex items-center justify-center">
+              <ModeToggle />
+            </div>
+          </div>
+
         </div>
+
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN */}
       <div className="flex-1 md:ml-72 flex flex-col min-h-screen">
-
-        {/* MOBILE HEADER */}
         <header
           className="md:hidden h-16 sticky top-0 z-40 
           bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl 
@@ -166,21 +186,23 @@ export default function DashboardLayout({
                 ))}
               </nav>
 
-              <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+              <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center gap-4">
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  className="flex-1 justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition"
                   onClick={handleLogout}
                 >
-                  <LogOut size={18} className="mr-2" /> Logout
+                  <LogOut size={18} className="mr-2" />
+                  Logout
                 </Button>
-                <ModeToggle />
+
+                <ModeToggle className="mb-0.5" />
               </div>
+
             </SheetContent>
           </Sheet>
         </header>
 
-        {/* PAGE CONTENT */}
         <main className="flex-1 p-4 md:p-10 overflow-x-hidden">
           <div className="max-w-7xl mx-auto space-y-6 animate-fadeIn transition-colors">
             {children}
