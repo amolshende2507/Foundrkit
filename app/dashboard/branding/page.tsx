@@ -62,7 +62,6 @@ export default function BrandingSuite() {
   const fetchSavedAssets = async () => {
     try {
       setPageLoading(true);
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -76,6 +75,9 @@ export default function BrandingSuite() {
     }
   };
 
+  /* ================================
+     ✅ UPDATED GENERATE FUNCTION
+     ================================ */
   const handleGenerate = async (type: "name" | "slogan" | "logo") => {
     if (!keywords) {
       alert("Please enter some keywords about your business.");
@@ -84,10 +86,12 @@ export default function BrandingSuite() {
 
     setGenerationType(type);
     setLoading(true);
+    setLogoUrl(""); // reset logo
 
     const { data: { user } } = await supabase.auth.getUser();
 
     try {
+      // 1️⃣ Generate text (name, slogan, or logo prompt)
       const res = await fetch("http://localhost:8000/branding/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -111,20 +115,37 @@ export default function BrandingSuite() {
             : setSlogans([data.result]);
         }
       } else {
-        const prompt = data.result;
-        const seed = Math.floor(Math.random() * 10000);
-        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(
-          prompt
-        )}?nologo=true&seed=${seed}&width=512&height=512`;
-        setLogoUrl(url);
+        // 2️⃣ Generate logo image from backend (Hugging Face)
+        const imageRes = await fetch(
+          "http://localhost:8000/branding/generate-image",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: data.result,
+            }),
+          }
+        );
+
+        if (!imageRes.ok) {
+          throw new Error("Image generation failed");
+        }
+
+        const imageData = await imageRes.json();
+
+        // Base64 image returned from backend
+        setLogoUrl(imageData.image_url);
       }
-    } catch {
-      alert("Error generating assets.");
+    } catch (error) {
+      console.error(error);
+      alert("Error generating assets. Check backend logs.");
     } finally {
       setLoading(false);
       setGenerationType(null);
     }
   };
+
+  /* ================================ */
 
   const downloadImage = async () => {
     if (!logoUrl) return;
