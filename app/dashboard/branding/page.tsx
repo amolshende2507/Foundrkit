@@ -92,7 +92,7 @@ export default function BrandingSuite() {
 
     try {
       // 1️⃣ Generate text (name, slogan, or logo prompt)
-      const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/branding/generate", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/branding/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,7 +117,7 @@ export default function BrandingSuite() {
       } else {
         // 2️⃣ Generate logo image from backend (Hugging Face)
         const imageRes = await fetch(
-          "${process.env.NEXT_PUBLIC_API_URL}/branding/generate-image",
+          `${process.env.NEXT_PUBLIC_API_URL}/branding/generate-image`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -165,7 +165,7 @@ export default function BrandingSuite() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await fetch("${process.env.NEXT_PUBLIC_API_URL}/branding/assets/save", {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/branding/assets/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
