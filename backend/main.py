@@ -24,7 +24,7 @@ app = FastAPI()
 # --- FIX CORS HERE ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Allow Next.js
+    allow_origins=["*"], # Allow Next.js
     allow_credentials=True,
     allow_methods=["*"], # Allow all (GET, POST, etc.)
     allow_headers=["*"],
