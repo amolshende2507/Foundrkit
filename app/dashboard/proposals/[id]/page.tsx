@@ -16,7 +16,7 @@ const PDFDownloadLink = dynamic(
     { ssr: false, loading: () => <Button disabled>Loading PDF...</Button> }
 );
 
-export default function ProposalDetail({ params }: { params: { id: string } }) {
+export default function ProposalDetail({ params }: { params: Promise<{ id: string }> }){
     const router = useRouter();
 
     const { id } = use(params);
