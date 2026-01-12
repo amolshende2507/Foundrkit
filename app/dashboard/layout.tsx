@@ -196,7 +196,7 @@ export default function DashboardLayout({
                   Logout
                 </Button>
 
-                <ModeToggle className="mb-0.5" />
+                <ModeToggle />
               </div>
 
             </SheetContent>
