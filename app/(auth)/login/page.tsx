@@ -137,7 +137,7 @@ export default function AuthPage() {
               <Input
                 id="email"
                 placeholder="name@example.com"
-                className="text-black dark:text-white border-slate-300" 
+                className="text-black border-slate-300" 
                 type="email"
                 disabled={isLoading}
                 value={email}
@@ -152,7 +152,7 @@ export default function AuthPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                className="text-black dark:text-white border-slate-300" 
+                className="text-black border-slate-300" 
                 disabled={isLoading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
