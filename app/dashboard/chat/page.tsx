@@ -60,7 +60,7 @@ export default function AdvancedChat() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const res = await fetch(`http://localhost:8000/chat/sessions/${user.id}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${user.id}`);
     const data = await res.json();
 
     setSessions(data);
@@ -68,7 +68,7 @@ export default function AdvancedChat() {
   };
 
   const fetchMessages = async (sessionId: string) => {
-    const res = await fetch(`http://localhost:8000/chat/messages/${sessionId}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages/${sessionId}`);
     const data = await res.json();
     setMessages(data);
   };
@@ -77,7 +77,7 @@ export default function AdvancedChat() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const res = await fetch("http://localhost:8000/chat/sessions", {
+    const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/chat/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user.id, title: "New Strategy Chat" }),
@@ -101,7 +101,7 @@ export default function AdvancedChat() {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    await fetch("http://localhost:8000/chat/send", {
+    await fetch("${process.env.NEXT_PUBLIC_API_URL}/chat/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -119,7 +119,7 @@ export default function AdvancedChat() {
     e.stopPropagation();
     if (!confirm("Delete this chat?")) return;
 
-    await fetch(`http://localhost:8000/chat/sessions/${id}`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${id}`, {
       method: "DELETE",
     });
 
@@ -131,7 +131,7 @@ export default function AdvancedChat() {
     if (!sessionToEdit) return;
 
     await fetch(
-      `http://localhost:8000/chat/sessions/${sessionToEdit}?title=${editTitle}`,
+      `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionToEdit}?title=${editTitle}`,
       { method: "PUT" }
     );
 

@@ -52,7 +52,7 @@ export default function OnboardingWizard() {
       if (error) throw error;
 
       // 3. (Optional) Create a 'First Task' automatically
-      await fetch("http://localhost:8000/tasks/add", {
+      await fetch("${process.env.NEXT_PUBLIC_API_URL}/tasks/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -45,7 +45,7 @@ export default function EmailGenerator() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const res = await fetch(`http://localhost:8000/clients/${user.id}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${user.id}`);
       const data = await res.json();
       setClients(data);
     }
@@ -66,7 +66,7 @@ export default function EmailGenerator() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const response = await fetch("http://localhost:8000/generate-email", {
+      const response = await fetch("${process.env.NEXT_PUBLIC_API_URL}/generate-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,7 +110,7 @@ export default function EmailGenerator() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await fetch("http://localhost:8000/emails/save", {
+    await fetch("${process.env.NEXT_PUBLIC_API_URL}/emails/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

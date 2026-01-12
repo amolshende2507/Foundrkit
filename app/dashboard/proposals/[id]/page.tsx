@@ -40,7 +40,7 @@ export default function ProposalDetail({ params }: { params: { id: string } }) {
                 if (brand) setCompanyName(brand.company_name);
             }
 
-            const response = await fetch(`http://localhost:8000/proposals/detail/${id}`);
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/detail/${id}`);
             const data = await response.json();
             setProposal(data);
             setEditContent(data.content);
@@ -50,7 +50,7 @@ export default function ProposalDetail({ params }: { params: { id: string } }) {
     }, [id]);
 
     const handleUpdate = async () => {
-        await fetch(`http://localhost:8000/proposals/${id}`, {
+        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/${id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ content: editContent })

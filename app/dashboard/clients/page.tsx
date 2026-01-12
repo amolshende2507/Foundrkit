@@ -32,7 +32,7 @@ export default function ClientsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const res = await fetch(`http://localhost:8000/clients/${user.id}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${user.id}`);
     const data = await res.json();
     setClients(data);
     setLoading(false);
@@ -47,7 +47,7 @@ export default function ClientsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await fetch("http://localhost:8000/clients/add", {
+    await fetch("${process.env.NEXT_PUBLIC_API_URL}/clients/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user.id, name, email, industry, notes }),
@@ -63,7 +63,7 @@ export default function ClientsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this client?")) return;
-    await fetch(`http://localhost:8000/clients/${id}`, { method: "DELETE" });
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${id}`, { method: "DELETE" });
     fetchClients();
   };
 

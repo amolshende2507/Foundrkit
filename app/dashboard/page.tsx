@@ -26,7 +26,7 @@ export default function Dashboard() {
       if (user) {
         setUserName(user.user_metadata?.full_name?.split(" ")[0] || "Founder");
 
-        const res = await fetch(`http://localhost:8000/dashboard/stats/${user.id}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/stats/${user.id}`);
         const data = await res.json();
         setStats(data);
       }

@@ -25,7 +25,7 @@ export default function ProposalList() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const response = await fetch(`http://localhost:8000/proposals/${user.id}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/${user.id}`);
       const data = await response.json();
       setProposals(data);
       setLoading(false);
@@ -35,7 +35,7 @@ export default function ProposalList() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this proposal?")) return;
-    await fetch(`http://localhost:8000/proposals/${id}`, { method: "DELETE" });
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/${id}`, { method: "DELETE" });
     setProposals(proposals.filter((p) => p.id !== id));
   };
 

@@ -50,7 +50,7 @@ export default function ProposalGenerator() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const clientsRes = await fetch(`http://localhost:8000/clients/${user.id}`);
+      const clientsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${user.id}`);
       const clientsData = await clientsRes.json();
       setClients(clientsData);
 
@@ -87,7 +87,7 @@ Client Industry: ${selectedClient.industry || "General"}
 Client Notes: ${selectedClient.notes || "None"}
 `;
 
-    const res = await fetch("http://localhost:8000/generate-proposal", {
+    const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/generate-proposal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -111,7 +111,7 @@ Client Notes: ${selectedClient.notes || "None"}
       data: { user },
     } = await supabase.auth.getUser();
 
-    await fetch("http://localhost:8000/proposals/save", {
+    await fetch("${process.env.NEXT_PUBLIC_API_URL}/proposals/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

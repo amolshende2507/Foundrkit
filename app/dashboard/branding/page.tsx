@@ -66,7 +66,7 @@ export default function BrandingSuite() {
       if (!user) return;
 
       const res = await fetch(
-        `http://localhost:8000/branding/assets/${user.id}`
+        `${process.env.NEXT_PUBLIC_API_URL}/branding/assets/${user.id}`
       );
       const data = await res.json();
       setSavedAssets(data);
@@ -92,7 +92,7 @@ export default function BrandingSuite() {
 
     try {
       // 1️⃣ Generate text (name, slogan, or logo prompt)
-      const res = await fetch("http://localhost:8000/branding/generate", {
+      const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/branding/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,7 +117,7 @@ export default function BrandingSuite() {
       } else {
         // 2️⃣ Generate logo image from backend (Hugging Face)
         const imageRes = await fetch(
-          "http://localhost:8000/branding/generate-image",
+          "${process.env.NEXT_PUBLIC_API_URL}/branding/generate-image",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -165,7 +165,7 @@ export default function BrandingSuite() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await fetch("http://localhost:8000/branding/assets/save", {
+    await fetch("${process.env.NEXT_PUBLIC_API_URL}/branding/assets/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -180,7 +180,7 @@ export default function BrandingSuite() {
 
   const handleDeleteAsset = async (id: string) => {
     if (!confirm("Remove this asset?")) return;
-    await fetch(`http://localhost:8000/branding/assets/${id}`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/branding/assets/${id}`, {
       method: "DELETE",
     });
     setSavedAssets(savedAssets.filter((a) => a.id !== id));

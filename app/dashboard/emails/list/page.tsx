@@ -16,7 +16,7 @@ export default function EmailList() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const res = await fetch(`http://localhost:8000/emails/${user.id}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emails/${user.id}`);
       const data = await res.json();
       setEmails(data);
       setLoading(false);
@@ -26,7 +26,7 @@ export default function EmailList() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this draft?")) return;
-    await fetch(`http://localhost:8000/emails/${id}`, { method: "DELETE" });
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emails/${id}`, { method: "DELETE" });
     setEmails(emails.filter((e) => e.id !== id));
   };
 

@@ -31,7 +31,7 @@ export default function TaskManager() {
   async function fetchTasks() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const res = await fetch(`http://localhost:8000/tasks/${user.id}`);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${user.id}`);
     const data = await res.json();
     setTasks(data);
   }
@@ -44,7 +44,7 @@ export default function TaskManager() {
     if (!newTaskTitle) return;
     const { data: { user } } = await supabase.auth.getUser();
 
-    await fetch("http://localhost:8000/tasks/add", {
+    await fetch("${process.env.NEXT_PUBLIC_API_URL}/tasks/add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user?.id, title: newTaskTitle, status: "todo" })
@@ -58,7 +58,7 @@ export default function TaskManager() {
     setAiLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    const res = await fetch("http://localhost:8000/tasks/generate", {
+    const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/tasks/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user?.id, goal: aiGoal })
@@ -67,7 +67,7 @@ export default function TaskManager() {
     const data = await res.json();
 
     for (const t of data.tasks) {
-      await fetch("http://localhost:8000/tasks/add", {
+      await fetch("${process.env.NEXT_PUBLIC_API_URL}/tasks/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user?.id, title: t, status: "todo" })
@@ -81,12 +81,12 @@ export default function TaskManager() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
-    await fetch(`http://localhost:8000/tasks/${id}?status=${newStatus}`, { method: "PUT" });
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${id}?status=${newStatus}`, { method: "PUT" });
   };
 
   const handleDelete = async (id: string) => {
     setTasks(tasks.filter(t => t.id !== id));
-    await fetch(`http://localhost:8000/tasks/${id}`, { method: "DELETE" });
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${id}`, { method: "DELETE" });
   };
 
   return (
