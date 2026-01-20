@@ -107,7 +107,7 @@ export default function Home() {
                                 <span className="bg-gradient-to-r from-purple-400 via-sky-400 to-emerald-300 bg-clip-text text-transparent">
                                     AI Co-Founder
                                 </span>{" "}
-                                for everything you don’t have time to do.
+                                for everything outside your zone of genius
                             </motion.h1>
 
                             <motion.p variants={fadeUp} className="max-w-xl text-slate-300 text-lg leading-relaxed">
