@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 const pricingPlans = [
     {
         name: "Starter",
-        price: "$0",
+        price: "₹0",
         period: "/month",
         description: "Perfect for exploring the AI tools.",
         features: ["5 AI Proposals / mo", "Basic Task Board", "Standard Support", "1 Client Profile"],
@@ -16,7 +16,7 @@ const pricingPlans = [
     },
     {
         name: "Pro Founder",
-        price: "$29",
+        price: "₹29",
         period: "/month",
         description: "For founders running a serious operation.",
         features: ["Unlimited Proposals", "Advanced Co-Founder Chat", "Priority Support", "Unlimited Clients", "Export to PDF"],
