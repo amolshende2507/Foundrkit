@@ -45,8 +45,9 @@ export default function DashboardLayout({
     { name: "Tasks", href: "/dashboard/tasks", icon: CheckSquare },
     { name: "Co-Founder Chat", href: "/dashboard/chat", icon: MessageSquare },
     { name: "Branding Suite", href: "/dashboard/branding", icon: Palette },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings }, 
     { name: "AI Tools", href: "/dashboard/tools", icon: Wrench},
+    { name: "Settings", href: "/dashboard/settings", icon: Settings }, 
+    
   ];
 
   const NavLink = ({ item }: any) => {
