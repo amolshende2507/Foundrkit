@@ -47,7 +47,7 @@ export default function ClientsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await fetch("${process.env.NEXT_PUBLIC_API_URL}/clients/add", {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user.id, name, email, industry, notes }),
