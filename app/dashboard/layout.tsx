@@ -18,6 +18,7 @@ import {
   CheckSquare,
   Palette,
   Menu,
+  Wrench,
 } from "lucide-react";
 
 import { ModeToggle } from "@/components/mode-toggle";
@@ -44,7 +45,8 @@ export default function DashboardLayout({
     { name: "Tasks", href: "/dashboard/tasks", icon: CheckSquare },
     { name: "Co-Founder Chat", href: "/dashboard/chat", icon: MessageSquare },
     { name: "Branding Suite", href: "/dashboard/branding", icon: Palette },
-    { name: "Settings", href: "/dashboard/settings", icon: Settings },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings }, 
+    { name: "AI Tools", href: "/dashboard/tools", icon: Wrench},
   ];
 
   const NavLink = ({ item }: any) => {

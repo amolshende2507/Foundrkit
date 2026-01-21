@@ -10,6 +10,8 @@ import google.generativeai as genai
 from typing import Optional
 from uuid import UUID
 
+
+
 load_dotenv()
 
 # Configure Supabase & AI
@@ -24,10 +26,10 @@ app = FastAPI()
 # --- FIX CORS HERE ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow Next.js
+    allow_origins=["*"],  # <--- The "*" means "Allow Everyone". Crucial for local dev.
     allow_credentials=True,
-    allow_methods=["*"], # Allow all (GET, POST, etc.)
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allow all methods (POST, GET, PUT, DELETE)
+    allow_headers=["*"],  # Allow all headers
 )
 
 # 1. Define what data the frontend sends us
@@ -591,3 +593,155 @@ def get_assets(user_id: str):
 @app.delete("/branding/assets/{asset_id}")
 def delete_asset(asset_id: str):
     return supabase.table("branding_assets").delete().eq("id", asset_id).execute()
+
+
+
+# --- AI TOOLS DRAWER ENDPOINT ---
+# --- AI TOOLS DRAWER ENDPOINT ---
+
+
+
+class ToolRequest(BaseModel):
+    user_id: str
+    tool_id: str
+    inputs: dict
+
+
+@app.post("/tools/run")
+def run_ai_tool(request: ToolRequest):
+    tool_id = request.tool_id
+    data = request.inputs
+
+    # ------------------------------------------------------------------
+    # 1. SELECT PROMPT (STRICT, PROFESSIONAL OUTPUT)
+    # ------------------------------------------------------------------
+
+    if tool_id == "bio-generator":
+        prompt = f"""
+Write exactly 3 professional social media bios.
+
+Rules:
+- Each bio must be 1–2 lines maximum
+- No emojis
+- No markdown
+- No stars or bullet symbols
+- Separate each bio with ONE blank line
+- Use a clean, professional tone
+
+Context:
+Role: {data.get('role')}
+Key Skills: {data.get('skills')}
+Tone: {data.get('tone')}
+"""
+
+    elif tool_id == "social-post":
+        prompt = f"""
+Write ONE high-quality {data.get('platform')} post.
+
+Rules:
+- No emojis unless natural for the platform
+- No markdown formatting
+- No excessive hashtags
+- Short, readable paragraphs
+- Ready to copy and publish
+
+Topic:
+{data.get('topic')}
+
+Target Audience:
+{data.get('audience')}
+
+Tone:
+{data.get('tone')}
+"""
+
+    elif tool_id == "idea-validator":
+        prompt = f"""
+You are a venture capitalist evaluating an early-stage startup.
+
+Respond using ONLY the structure below.
+Do not add emojis, markdown, jokes, or extra commentary.
+
+Structure:
+
+Score: X/10
+
+Market Assessment:
+(one short paragraph about market size and demand)
+
+Business Model Concerns:
+1. ...
+2. ...
+3. ...
+
+Execution Risks:
+1. ...
+2. ...
+3. ...
+
+Final Verdict:
+(one honest sentence on whether this idea is investable)
+
+Startup Idea:
+{data.get('idea')}
+"""
+
+    elif tool_id == "cold-email":
+        prompt = f"""
+Rewrite the following cold email.
+
+Rules:
+- Use the exact format below
+- No emojis
+- No markdown
+- Professional, concise, persuasive
+
+Format:
+
+Subject:
+<short subject line>
+
+Body:
+<email body>
+
+Draft Email:
+{data.get('draft')}
+"""
+
+    elif tool_id == "eli5":
+        prompt = f"""
+Explain the following concept like I am 5 years old.
+
+Rules:
+- One short paragraph only
+- Simple language
+- No technical jargon
+- No emojis
+- No markdown
+
+Concept:
+{data.get('concept')}
+"""
+
+    else:
+        prompt = f"""
+Help with the following request in a clear and professional manner.
+
+Request:
+{data}
+"""
+
+    # ------------------------------------------------------------------
+    # 2. RUN GEMINI MODEL
+    # ------------------------------------------------------------------
+
+    model = genai.GenerativeModel("gemini-2.5-flash")
+    response = model.generate_content(prompt)
+
+    # ------------------------------------------------------------------
+    # 3. RETURN CLEAN TEXT ONLY
+    # ------------------------------------------------------------------
+
+    return {
+        "result": response.text.strip()
+    }
