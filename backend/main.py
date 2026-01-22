@@ -745,3 +745,111 @@ Request:
     return {
         "result": response.text.strip()
     }
+
+
+# --- UPGRADED LOGO GENERATOR WITH GEMINI BRIDGE (PRODUCTION READY) ---
+
+class LogoGenerationRequest(BaseModel):
+    prompt: str
+
+
+@app.post("/branding/generate-image")
+def generate_image_logo(request: LogoGenerationRequest):
+    print(f"DEBUG: Original User Input: {request.prompt}")
+
+    hf_token = os.environ.get("HF_API_KEY")
+    if not hf_token:
+        raise HTTPException(status_code=500, detail="HF_API_KEY missing")
+
+    # ======================================================
+    # 1️⃣ GEMINI PROMPT ENGINEERING BRIDGE
+    # ======================================================
+    try:
+        bridge_prompt = f"""
+Act as an expert Prompt Engineer for Stable Diffusion XL.
+
+The user wants a professional startup logo for:
+"{request.prompt}"
+
+Requirements:
+- Minimalist flat vector logo
+- Single centered symbol
+- Pure white background
+- No text, no letters, no typography
+- Clean geometric shapes
+- Adobe Illustrator / SVG style
+- Corporate, sleek, professional branding
+
+Return ONLY the final prompt string.
+"""
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        bridge_response = model.generate_content(bridge_prompt)
+        enhanced_prompt = bridge_response.text.strip()
+
+        print(f"DEBUG: Enhanced Prompt: {enhanced_prompt}")
+
+    except Exception as e:
+        print(f"⚠️ Gemini bridge failed, using fallback: {e}")
+        enhanced_prompt = (
+            f"Minimal flat vector logo of {request.prompt}, "
+            "single centered symbol, white background, "
+            "clean geometric design, professional branding"
+        )
+
+    # ======================================================
+    # 2️⃣ STABLE DIFFUSION XL (HUGGING FACE)
+    # ======================================================
+    API_URL = (
+        "https://router.huggingface.co/hf-inference/models/"
+        "stabilityai/stable-diffusion-xl-base-1.0"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {hf_token}",
+        "Content-Type": "application/json",
+        "x-wait-for-model": "true",
+        "x-use-cache": "false",
+    }
+
+    negative_prompt = """
+text, letters, typography, words,
+mockup, scene, background environment,
+photorealistic, 3d render,
+shadow, gradient, watermark,
+low quality, blurry
+"""
+
+    payload = {
+        "inputs": enhanced_prompt,
+        "parameters": {
+            "negative_prompt": negative_prompt,
+            "num_inference_steps": 35,
+            "guidance_scale": 8,
+            "width": 1024,
+            "height": 1024,
+        },
+    }
+
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload)
+
+        if response.status_code != 200:
+            if "loading" in response.text.lower():
+                raise HTTPException(
+                    status_code=503,
+                    detail="Logo model is warming up. Try again in 20 seconds."
+                )
+            raise HTTPException(
+                status_code=500,
+                detail=f"HuggingFace Error: {response.text}"
+            )
+
+        base64_image = base64.b64encode(response.content).decode("utf-8")
+
+        return {
+            "image_url": f"data:image/png;base64,{base64_image}",
+            "type": "logo"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
