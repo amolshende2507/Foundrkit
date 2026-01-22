@@ -77,7 +77,7 @@ export default function AdvancedChat() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/chat/sessions", {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user.id, title: "New Strategy Chat" }),
@@ -101,7 +101,7 @@ export default function AdvancedChat() {
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    await fetch("${process.env.NEXT_PUBLIC_API_URL}/chat/send", {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

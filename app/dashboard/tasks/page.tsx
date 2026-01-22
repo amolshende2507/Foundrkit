@@ -44,7 +44,7 @@ export default function TaskManager() {
     if (!newTaskTitle) return;
     const { data: { user } } = await supabase.auth.getUser();
 
-    await fetch("${process.env.NEXT_PUBLIC_API_URL}/tasks/add", {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user?.id, title: newTaskTitle, status: "todo" })
@@ -58,7 +58,7 @@ export default function TaskManager() {
     setAiLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/tasks/generate", {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: user?.id, goal: aiGoal })
@@ -67,7 +67,7 @@ export default function TaskManager() {
     const data = await res.json();
 
     for (const t of data.tasks) {
-      await fetch("${process.env.NEXT_PUBLIC_API_URL}/tasks/add", {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: user?.id, title: t, status: "todo" })

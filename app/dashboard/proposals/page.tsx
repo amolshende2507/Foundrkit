@@ -87,7 +87,7 @@ Client Industry: ${selectedClient.industry || "General"}
 Client Notes: ${selectedClient.notes || "None"}
 `;
 
-    const res = await fetch("${process.env.NEXT_PUBLIC_API_URL}/generate-proposal", {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/generate-proposal`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -111,7 +111,7 @@ Client Notes: ${selectedClient.notes || "None"}
       data: { user },
     } = await supabase.auth.getUser();
 
-    await fetch("${process.env.NEXT_PUBLIC_API_URL}/proposals/save", {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
