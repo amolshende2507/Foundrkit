@@ -605,19 +605,13 @@ class ToolRequest(BaseModel):
     user_id: str
     tool_id: str
     inputs: dict
-
-
 @app.post("/tools/run")
 def run_ai_tool(request: ToolRequest):
     tool_id = request.tool_id
     data = request.inputs
 
-    # ------------------------------------------------------------------
-    # 1. SELECT PROMPT (STRICT, PROFESSIONAL OUTPUT)
-    # ------------------------------------------------------------------
-
-    if tool_id == "bio-generator":
-        prompt = f"""
+    prompts = {
+        "bio-generator": f"""
 Write exactly 3 professional social media bios.
 
 Rules:
@@ -632,10 +626,9 @@ Context:
 Role: {data.get('role')}
 Key Skills: {data.get('skills')}
 Tone: {data.get('tone')}
-"""
+""",
 
-    elif tool_id == "social-post":
-        prompt = f"""
+        "social-post": f"""
 Write ONE high-quality {data.get('platform')} post.
 
 Rules:
@@ -653,10 +646,9 @@ Target Audience:
 
 Tone:
 {data.get('tone')}
-"""
+""",
 
-    elif tool_id == "idea-validator":
-        prompt = f"""
+        "idea-validator": f"""
 You are a venture capitalist evaluating an early-stage startup.
 
 Respond using ONLY the structure below.
@@ -684,10 +676,9 @@ Final Verdict:
 
 Startup Idea:
 {data.get('idea')}
-"""
+""",
 
-    elif tool_id == "cold-email":
-        prompt = f"""
+        "cold-email": f"""
 Rewrite the following cold email.
 
 Rules:
@@ -706,10 +697,9 @@ Body:
 
 Draft Email:
 {data.get('draft')}
-"""
+""",
 
-    elif tool_id == "eli5":
-        prompt = f"""
+        "eli5": f"""
 Explain the following concept like I am 5 years old.
 
 Rules:
@@ -721,15 +711,43 @@ Rules:
 
 Concept:
 {data.get('concept')}
-"""
+""",
 
-    else:
-        prompt = f"""
+        "seo-keywords": f"""
+Act as an SEO Expert.
+
+Generate a list of 10 high-potential SEO keywords.
+
+Rules:
+- No emojis
+- No markdown
+- Clear intent labeling
+
+Topic:
+{data.get('topic')}
+
+Target Audience:
+{data.get('audience')}
+
+Format:
+1. Keyword (Search Intent)
+2. Keyword (Search Intent)
+...
+"""
+    }
+
+    prompt = prompts.get(
+        tool_id,
+        f"""
 Help with the following request in a clear and professional manner.
 
 Request:
 {data}
 """
+    )
+
+    return {"prompt": prompt}
+
 
     # ------------------------------------------------------------------
     # 2. RUN GEMINI MODEL

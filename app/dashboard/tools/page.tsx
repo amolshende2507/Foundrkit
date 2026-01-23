@@ -29,6 +29,9 @@ import {
     Copy,
     Check,
     Sparkles,
+    Search,
+    Briefcase,
+    Swords,
 } from "lucide-react";
 
 
@@ -104,6 +107,37 @@ const TOOLS = [
                 label: "Complex Concept",
                 placeholder: "Quantum computing, SEO, CRDTs…",
             },
+        ],
+    },
+    {
+        id: "seo-keywords",
+        title: "SEO Keyword Planner",
+        desc: "Find the best keywords to rank on Google.",
+        icon: <Search className="w-8 h-8 text-indigo-500" />,
+        inputs: [
+            { name: "topic", label: "Business Topic", placeholder: "e.g. AI Copywriting" },
+            { name: "audience", label: "Target Customer", placeholder: "e.g. Marketing Agencies" },
+        ],
+    },
+    {
+        id: "job-description",
+        title: "Hiring Assistant",
+        desc: "Generate professional JDs to hire talent.",
+        icon: <Briefcase className="w-8 h-8 text-orange-500" />,
+        inputs: [
+            { name: "role", label: "Job Title", placeholder: "e.g. React Developer" },
+            { name: "vibe", label: "Company Culture", placeholder: "e.g. Fast-paced, remote-first" },
+            { name: "tasks", label: "Main Tasks", placeholder: "e.g. Build UI components, fix bugs", type: "textarea" },
+        ],
+    },
+    {
+        id: "competitor-swot",
+        title: "Competitor Spy",
+        desc: "Analyze a competitor's weaknesses.",
+        icon: <Swords className="w-8 h-8 text-red-500" />,
+        inputs: [
+            { name: "competitor", label: "Competitor Name/URL", placeholder: "e.g. Competitor.com" },
+            { name: "my_company", label: "Your Company", placeholder: "e.g. FoundrKit" },
         ],
     },
 ];
