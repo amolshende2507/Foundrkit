@@ -606,7 +606,6 @@ class ToolRequest(BaseModel):
     tool_id: str
     inputs: dict
 
-
 @app.post("/tools/run")
 def run_ai_tool(request: ToolRequest):
     tool_id = request.tool_id
@@ -632,7 +631,7 @@ Context:
 Role: {data.get('role')}
 Key Skills: {data.get('skills')}
 Tone: {data.get('tone')}
-"""
+""".strip()
 
     elif tool_id == "social-post":
         prompt = f"""
@@ -653,7 +652,7 @@ Target Audience:
 
 Tone:
 {data.get('tone')}
-"""
+""".strip()
 
     elif tool_id == "idea-validator":
         prompt = f"""
@@ -684,7 +683,7 @@ Final Verdict:
 
 Startup Idea:
 {data.get('idea')}
-"""
+""".strip()
 
     elif tool_id == "cold-email":
         prompt = f"""
@@ -706,7 +705,7 @@ Body:
 
 Draft Email:
 {data.get('draft')}
-"""
+""".strip()
 
     elif tool_id == "eli5":
         prompt = f"""
@@ -721,37 +720,75 @@ Rules:
 
 Concept:
 {data.get('concept')}
-"""
+""".strip()
+
     elif tool_id == "seo-keywords":
         prompt = f"""
-        Act as an SEO Expert. Generate a list of 10 high-potential SEO keywords for this topic:
-        Topic: "{data.get('topic')}"
-        Target Audience: "{data.get('audience')}"
-        
-        Format:
-        1. Keyword (Search Intent)
-        2. Keyword (Search Intent)
-        ...
-        """
+You are an SEO specialist.
+
+Generate exactly 10 high-potential SEO keywords based on the information below.
+
+Topic:
+{data.get('topic')}
+
+Target Audience:
+{data.get('audience')}
+
+Requirements:
+- Focus on commercial and informational intent
+- Avoid overly generic keywords
+- Prioritize clarity and search relevance
+
+Output Format:
+1. Keyword – Search Intent
+2. Keyword – Search Intent
+3. Keyword – Search Intent
+...
+""".strip()
+
 
     elif tool_id == "job-description":
         prompt = f"""
-        Write a professional Job Description for a startup hire.
-        Role: {data.get('role')}
-        Company Vibe: {data.get('vibe')}
-        Key Responsibilities: {data.get('tasks')}
-        
-        Include: About Us, Role Overview, Requirements, and Benefits.
-        """
+Write a professional job description suitable for a startup environment.
+
+Role:
+{data.get('role')}
+
+Company Culture:
+{data.get('vibe')}
+
+Key Responsibilities:
+{data.get('tasks')}
+
+Structure the response using the following sections only:
+About the Company
+Role Overview
+Key Responsibilities
+Requirements
+Benefits
+
+Maintain a clear, concise, and professional tone throughout.
+""".strip()
+
 
     elif tool_id == "competitor-swot":
         prompt = f"""
-        Perform a SWOT Analysis (Strengths, Weaknesses, Opportunities, Threats) for this competitor:
-        Competitor Name/URL: "{data.get('competitor')}"
-        My Company: "{data.get('my_company')}"
-        
-        Focus on how My Company can beat them.
-        """
+You are a business strategy consultant.
+
+Conduct a SWOT analysis of the competitor listed below, with a strong emphasis on competitive positioning.
+
+Competitor:
+{data.get('competitor')}
+
+My Company:
+{data.get('my_company')}
+
+Response Requirements:
+- Clearly label Strengths, Weaknesses, Opportunities, and Threats
+- Keep each section concise and insight-driven
+- Focus on actionable insights that My Company can leverage to outperform the competitor
+""".strip()
+
 
     else:
         prompt = f"""
@@ -759,7 +796,7 @@ Help with the following request in a clear and professional manner.
 
 Request:
 {data}
-"""
+""".strip()
 
     # ------------------------------------------------------------------
     # 2. RUN GEMINI MODEL
@@ -775,6 +812,7 @@ Request:
     return {
         "result": response.text.strip()
     }
+
 
 
 # --- UPGRADED LOGO GENERATOR WITH GEMINI BRIDGE (PRODUCTION READY) ---
