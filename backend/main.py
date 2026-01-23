@@ -605,13 +605,19 @@ class ToolRequest(BaseModel):
     user_id: str
     tool_id: str
     inputs: dict
+
+
 @app.post("/tools/run")
 def run_ai_tool(request: ToolRequest):
     tool_id = request.tool_id
     data = request.inputs
 
-    prompts = {
-        "bio-generator": f"""
+    # ------------------------------------------------------------------
+    # 1. SELECT PROMPT (STRICT, PROFESSIONAL OUTPUT)
+    # ------------------------------------------------------------------
+
+    if tool_id == "bio-generator":
+        prompt = f"""
 Write exactly 3 professional social media bios.
 
 Rules:
@@ -626,9 +632,10 @@ Context:
 Role: {data.get('role')}
 Key Skills: {data.get('skills')}
 Tone: {data.get('tone')}
-""",
+"""
 
-        "social-post": f"""
+    elif tool_id == "social-post":
+        prompt = f"""
 Write ONE high-quality {data.get('platform')} post.
 
 Rules:
@@ -646,9 +653,10 @@ Target Audience:
 
 Tone:
 {data.get('tone')}
-""",
+"""
 
-        "idea-validator": f"""
+    elif tool_id == "idea-validator":
+        prompt = f"""
 You are a venture capitalist evaluating an early-stage startup.
 
 Respond using ONLY the structure below.
@@ -676,9 +684,10 @@ Final Verdict:
 
 Startup Idea:
 {data.get('idea')}
-""",
+"""
 
-        "cold-email": f"""
+    elif tool_id == "cold-email":
+        prompt = f"""
 Rewrite the following cold email.
 
 Rules:
@@ -697,9 +706,10 @@ Body:
 
 Draft Email:
 {data.get('draft')}
-""",
+"""
 
-        "eli5": f"""
+    elif tool_id == "eli5":
+        prompt = f"""
 Explain the following concept like I am 5 years old.
 
 Rules:
@@ -711,43 +721,45 @@ Rules:
 
 Concept:
 {data.get('concept')}
-""",
-
-        "seo-keywords": f"""
-Act as an SEO Expert.
-
-Generate a list of 10 high-potential SEO keywords.
-
-Rules:
-- No emojis
-- No markdown
-- Clear intent labeling
-
-Topic:
-{data.get('topic')}
-
-Target Audience:
-{data.get('audience')}
-
-Format:
-1. Keyword (Search Intent)
-2. Keyword (Search Intent)
-...
 """
-    }
+    elif tool_id == "seo-keywords":
+        prompt = f"""
+        Act as an SEO Expert. Generate a list of 10 high-potential SEO keywords for this topic:
+        Topic: "{data.get('topic')}"
+        Target Audience: "{data.get('audience')}"
+        
+        Format:
+        1. Keyword (Search Intent)
+        2. Keyword (Search Intent)
+        ...
+        """
 
-    prompt = prompts.get(
-        tool_id,
-        f"""
+    elif tool_id == "job-description":
+        prompt = f"""
+        Write a professional Job Description for a startup hire.
+        Role: {data.get('role')}
+        Company Vibe: {data.get('vibe')}
+        Key Responsibilities: {data.get('tasks')}
+        
+        Include: About Us, Role Overview, Requirements, and Benefits.
+        """
+
+    elif tool_id == "competitor-swot":
+        prompt = f"""
+        Perform a SWOT Analysis (Strengths, Weaknesses, Opportunities, Threats) for this competitor:
+        Competitor Name/URL: "{data.get('competitor')}"
+        My Company: "{data.get('my_company')}"
+        
+        Focus on how My Company can beat them.
+        """
+
+    else:
+        prompt = f"""
 Help with the following request in a clear and professional manner.
 
 Request:
 {data}
 """
-    )
-
-    return {"prompt": prompt}
-
 
     # ------------------------------------------------------------------
     # 2. RUN GEMINI MODEL
