@@ -46,10 +46,12 @@ export default function BrandingSuite() {
   const [keywords, setKeywords] = useState("");
   const [style, setStyle] = useState("Modern");
 
-  const [names, setNames] = useState<string[]>([]);
+  // We now store objects, not just strings
+  const [names, setNames] = useState<{ name: string, meaning: string }[]>([]);
   const [slogans, setSlogans] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
   const [savedAssets, setSavedAssets] = useState<any[]>([]);
+
 
   const [generationType, setGenerationType] = useState<
     "name" | "slogan" | "logo" | null
@@ -110,11 +112,16 @@ export default function BrandingSuite() {
           const list = JSON.parse(data.result);
           type === "name" ? setNames(list) : setSlogans(list);
         } catch {
-          type === "name"
-            ? setNames([data.result])
-            : setSlogans([data.result]);
+          // Fallback if AI messes up JSON format
+          if (type === "name") {
+            // Try to make it an object if it comes back as string
+            setNames([{ name: data.result, meaning: "AI generated result" }]);
+          } else {
+            setSlogans([data.result]);
+          }
         }
-      } else {
+      }
+      else {
         // 2️⃣ Generate logo image from backend (Hugging Face)
         const imageRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/branding/generate-image`,
@@ -288,35 +295,50 @@ export default function BrandingSuite() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                {names.map((name, i) => (
+                {names.map((item, i) => (
                   <Card
                     key={i}
-                    className="hover:shadow-xl transition border border-slate-200 dark:border-slate-800 dark:bg-slate-900 rounded-2xl"
+                    className="group hover:border-blue-500 transition-colors border border-slate-200 dark:border-slate-800 dark:bg-slate-900 rounded-2xl"
                   >
-                    <CardContent className="p-6 flex justify-between items-center">
-                      <span className="text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100">
-                        {name}
-                      </span>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigator.clipboard.writeText(name)}
-                        >
-                          <Copy className="h-4 w-4 text-slate-600 dark:text-slate-300" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleSaveAsset("name", name)}
-                        >
-                          <Heart className="h-4 w-4 text-red-400" />
-                        </Button>
+                    <CardContent className="p-6 flex flex-col justify-between h-full">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                          {item.name}
+                        </span>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => navigator.clipboard.writeText(item.name)}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleSaveAsset("name", item.name)}
+                          >
+                            <Heart className="h-4 w-4 text-red-400 hover:fill-red-400" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Meaning */}
+                      <div className="mt-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                          "{item.meaning}"
+                        </p>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
+
             )}
           </div>
         </TabsContent>

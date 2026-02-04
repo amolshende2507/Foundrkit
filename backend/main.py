@@ -468,10 +468,15 @@ def generate_branding(request: BrandingRequest):
         3. Keep it under 25 words.
         """
     elif request.asset_type == "name":
+        # UPDATED PROMPT: Ask for name AND meaning
         prompt = f"""
         Generate 5 creative, available business names for: "{request.keywords}".
         Style: {request.style}.
-        Return ONLY a JSON list of strings. Example: ["Name1", "Name2"]
+        
+        For each name, provide a short 1-sentence explanation of the meaning.
+        
+        Return ONLY a JSON list of objects with keys "name" and "meaning".
+        Example: [{{"name": "Zenith", "meaning": "Represents the peak of success."}}]
         """
     elif request.asset_type == "slogan":
         prompt = f"""
