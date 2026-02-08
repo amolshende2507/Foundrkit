@@ -167,11 +167,5 @@ This project is licensed under the MIT License.
 
 ---
 
-If you want next:
-- ⭐ **ATS-optimized project description for resume**
-- ⭐ **Pitch deck / startup-style README**
-- ⭐ **Badges (shields.io) + GitHub stats**
-- ⭐ **Screenshots layout section**
 
-Just tell me 🔥
 
