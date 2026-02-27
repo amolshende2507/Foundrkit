@@ -19,7 +19,7 @@ export default function OnboardingWizard() {
   // Form Data
   const [formData, setFormData] = useState({
     full_name: "",
-    role: "", // e.g. Founder, Freelancer
+    role: "",
     company_name: "",
     company_description: "",
     industry: "",
@@ -31,32 +31,67 @@ export default function OnboardingWizard() {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleFinish = async () => {
+  // ✅ SAFE INSERT / UPDATE LOGIC WITH USER ID CHECK
+  const handleOnboarding = async () => {
     setLoading(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // 🔒 --- CRITICAL SAFETY CHECK ---
+    if (!user || !user.id) {
+      console.error("CRITICAL: User ID is missing!");
+      alert("Session error. Please log out and log in again.");
+      setLoading(false);
+      return;
+    }
+
+    console.log("Saving for User ID:", user.id);
+    // ---------------------------------
+
+    const payload = {
+      user_id: user.id,
+      company_name: formData.company_name,
+      company_description: formData.company_description,
+      tone_of_voice: formData.tone,
+      website_url: formData.website
+    };
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No user found");
+      // Optional: Update profile name
+      await supabase
+        .from("profiles")
+        .update({ full_name: formData.full_name })
+        .eq("id", user.id);
 
-      // 1. Update Profile (Name)
-      await supabase.from("profiles").update({ full_name: formData.full_name }).eq("id", user.id);
-
-      // 2. Insert Brand Settings (The AI Context)
-      const { error } = await supabase
+      // Check if brand already exists
+      const { data: existingRow, error: selectError } = await supabase
         .from("brand_settings")
-        .upsert(
-          {
-            user_id: user.id,
-            company_name: formData.company_name,
-            company_description: formData.company_description,
-            tone_of_voice: formData.tone,
-            website_url: formData.website
-          },
-          { onConflict: "user_id" } // 🔥 THIS is the important part
-        );
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (selectError) throw selectError;
+
+      let error;
+
+      if (existingRow) {
+        console.log("Found existing profile, updating...");
+        const res = await supabase
+          .from("brand_settings")
+          .update(payload)
+          .eq("user_id", user.id);
+        error = res.error;
+      } else {
+        console.log("No profile found, creating new...");
+        const res = await supabase
+          .from("brand_settings")
+          .insert(payload);
+        error = res.error;
+      }
 
       if (error) throw error;
 
-      // 3. (Optional) Create a 'First Task' automatically
+      // Optional: Create first task
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -67,11 +102,11 @@ export default function OnboardingWizard() {
         })
       });
 
-      // Redirect to Dashboard
       router.push("/dashboard");
 
-    } catch (error) {
-      alert("Error saving profile. Please try again.");
+    } catch (err: any) {
+      console.error("Detailed Error:", err);
+      alert(`Error: ${err.message || err.details || "Check console"}`);
     } finally {
       setLoading(false);
     }
@@ -84,8 +119,11 @@ export default function OnboardingWizard() {
       <div className="w-full max-w-md mb-8 flex items-center justify-between px-2">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex flex-col items-center gap-2">
-            <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm ${step >= i ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-300 border-slate-200"
-              }`}>
+            <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm ${
+              step >= i
+                ? "bg-slate-900 text-white border-slate-900"
+                : "bg-white text-slate-300 border-slate-200"
+            }`}>
               {step > i ? <CheckCircle2 size={20} /> : i}
             </div>
             <span className="text-xs font-medium text-slate-500">
@@ -93,14 +131,11 @@ export default function OnboardingWizard() {
             </span>
           </div>
         ))}
-        {/* Lines between circles */}
-        <div className="absolute w-full max-w-[300px] h-[2px] bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 -z-10 top-[50%] translate-y-[-50%] hidden md:block" />
-
       </div>
 
-      <Card className="w-full max-w-md shadow-[0_20px_50px_-20px_rgba(0,0,0,0.25)] border border-slate-200 rounded-2xl">
+      <Card className="w-full max-w-md shadow-xl border rounded-2xl">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center tracking-tight text-slate-900">
+          <CardTitle className="text-2xl font-bold text-center">
             {step === 1 && "Let's get to know you"}
             {step === 2 && "Tell us about your startup"}
             {step === 3 && "Train your AI Co-Founder"}
@@ -109,80 +144,53 @@ export default function OnboardingWizard() {
 
         <CardContent className="space-y-4">
 
-          {/* STEP 1: PERSONAL INFO */}
           {step === 1 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="space-y-2">
-                <Label>What should we call you?</Label>
-                <div className="relative">
-                  <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-
-                  <Input className="h-11 rounded-xl border-slate-200 focus:border-slate-900 focus:ring-slate-900"
-                    placeholder="Your Full Name" value={formData.full_name} onChange={e => updateForm("full_name", e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>What describes you best?</Label>
-                <Select onValueChange={val => updateForm("role", val)}>
-                  <SelectTrigger><SelectValue placeholder="Select Role" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="founder">Solo Founder</SelectItem>
-                    <SelectItem value="freelancer">Freelancer</SelectItem>
-                    <SelectItem value="consultant">Consultant</SelectItem>
-                    <SelectItem value="student">Student Entrepreneur</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-4">
+              <Label>Your Full Name</Label>
+              <Input
+                value={formData.full_name}
+                onChange={e => updateForm("full_name", e.target.value)}
+              />
             </div>
           )}
 
-          {/* STEP 2: BUSINESS INFO */}
           {step === 2 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="space-y-2">
-                <Label>Company / Project Name</Label>
-                <div className="relative">
-                  <Building2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                  <Input className="h-11 rounded-xl border-slate-200 focus:border-slate-900 focus:ring-slate-900"
-                    placeholder="e.g. Neon Studio" value={formData.company_name} onChange={e => updateForm("company_name", e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Website (Optional)</Label>
-                <Input placeholder="https://..." value={formData.website} onChange={e => updateForm("website", e.target.value)} />
-              </div>
+            <div className="space-y-4">
+              <Label>Company Name</Label>
+              <Input
+                value={formData.company_name}
+                onChange={e => updateForm("company_name", e.target.value)}
+              />
+              <Label>Website</Label>
+              <Input
+                value={formData.website}
+                onChange={e => updateForm("website", e.target.value)}
+              />
             </div>
           )}
 
-          {/* STEP 3: AI CONTEXT */}
           {step === 3 && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="space-y-2">
-                <Label>What does your business do?</Label>
-                <Textarea
-                  placeholder="We build websites for dentists..."
-                  className="h-24"
-                  value={formData.company_description}
-                  onChange={e => updateForm("company_description", e.target.value)}
-                />
-                <p className="text-xs text-slate-500">The AI uses this to write your proposals.</p>
-              </div>
-              <div className="space-y-2">
-                <Label>Brand Tone</Label>
-                <Select onValueChange={val => updateForm("tone", val)} defaultValue="Professional">
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Professional">Professional & Corporate</SelectItem>
-                    <SelectItem value="Friendly">Friendly & Casual</SelectItem>
-                    <SelectItem value="Exciting">Exciting & Bold</SelectItem>
-                    <SelectItem value="Luxury">Luxury & Minimalist</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="text-center mt-1 text-xs font-medium text-blue-600">
-                Your AI learns from this
-              </div>
-
+            <div className="space-y-4">
+              <Label>Business Description</Label>
+              <Textarea
+                value={formData.company_description}
+                onChange={e => updateForm("company_description", e.target.value)}
+              />
+              <Label>Brand Tone</Label>
+              <Select
+                onValueChange={val => updateForm("tone", val)}
+                defaultValue="Professional"
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Professional">Professional</SelectItem>
+                  <SelectItem value="Friendly">Friendly</SelectItem>
+                  <SelectItem value="Exciting">Exciting</SelectItem>
+                  <SelectItem value="Luxury">Luxury</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
 
@@ -190,22 +198,25 @@ export default function OnboardingWizard() {
 
         <CardFooter className="flex justify-between">
           {step > 1 ? (
-            <Button variant="outline" className="h-11 rounded-xl" onClick={() => setStep(step - 1)}>
+            <Button variant="outline" onClick={() => setStep(step - 1)}>
               Back
             </Button>
-          ) : (
-            <div /> // Empty div to keep spacing
-          )}
+          ) : <div />}
 
           {step < 3 ? (
-            <Button onClick={() => setStep(step + 1)} disabled={!formData.full_name && step === 1 || !formData.company_name && step === 2} className="h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white">
+            <Button
+              onClick={() => setStep(step + 1)}
+              disabled={
+                (step === 1 && !formData.full_name) ||
+                (step === 2 && !formData.company_name)
+              }
+            >
               Next <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
             <Button
-              onClick={handleFinish}
+              onClick={handleOnboarding}
               disabled={loading || !formData.company_description}
-              className="h-11 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
             >
               {loading ? <Loader2 className="animate-spin mr-2" /> : <Sparkles className="mr-2" />}
               Launch HQ
