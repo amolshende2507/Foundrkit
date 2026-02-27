@@ -9,7 +9,7 @@ FoundrKit is an integrated productivity platform designed to act as a digital co
 
 ## 🚀 Live Demo
 
-- **Frontend (Vercel):** https://foundrkit-app.vercel.app  
+- **Frontend (Vercel):** [https://foundrkit-app.vercel.app](https://foundrkit.vercel.app/)  
 - **Backend API (Render):** https://foundrkit-api.onrender.com  
 
 ---
