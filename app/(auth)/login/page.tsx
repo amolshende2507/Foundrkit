@@ -70,17 +70,21 @@ export default function AuthPage() {
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true);
-
+      
+      // 1. Get the base URL automatically
+      // If on Vercel, use that URL. If local, use localhost.
+      const origin = window.location.origin;
+      
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          // 2. Point to the route inside (auth)/callback/route.ts
+          // Since (auth) is a group, the URL is just /callback
+          redirectTo: `${origin}/callback`, 
         },
       });
 
       if (error) throw error;
-
-      // No router.push needed — Supabase redirects automatically
     } catch (error) {
       alert("Error logging in with Google");
       console.error(error);

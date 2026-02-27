@@ -11,7 +11,6 @@ from typing import Optional
 from uuid import UUID
 
 
-
 load_dotenv()
 
 # Configure Supabase & AI

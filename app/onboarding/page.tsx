@@ -41,13 +41,18 @@ export default function OnboardingWizard() {
       await supabase.from("profiles").update({ full_name: formData.full_name }).eq("id", user.id);
 
       // 2. Insert Brand Settings (The AI Context)
-      const { error } = await supabase.from("brand_settings").upsert({
-        user_id: user.id,
-        company_name: formData.company_name,
-        company_description: formData.company_description,
-        tone_of_voice: formData.tone,
-        website_url: formData.website
-      });
+      const { error } = await supabase
+        .from("brand_settings")
+        .upsert(
+          {
+            user_id: user.id,
+            company_name: formData.company_name,
+            company_description: formData.company_description,
+            tone_of_voice: formData.tone,
+            website_url: formData.website
+          },
+          { onConflict: "user_id" } // 🔥 THIS is the important part
+        );
 
       if (error) throw error;
 
