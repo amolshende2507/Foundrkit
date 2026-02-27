@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Sparkles, Github, Mail } from "lucide-react";
+import { Loader2, Sparkles, Mail } from "lucide-react";
 
 export default function AuthPage() {
   const router = useRouter();
@@ -15,10 +15,9 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  // ✅ NEW STATE
   const [verificationSent, setVerificationSent] = useState(false);
 
+  // ✅ EMAIL + PASSWORD AUTH
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -27,14 +26,20 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        // 🔐 LOGIN
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
         if (error) {
           if (error.message.includes("Invalid login")) {
-            throw new Error("Account not found or password incorrect. Please Sign Up if you are new.");
+            throw new Error(
+              "Account not found or password incorrect. Please Sign Up if you are new."
+            );
           } else if (error.message.includes("Email not confirmed")) {
-            throw new Error("Please verify your email address before logging in.");
+            throw new Error(
+              "Please verify your email address before logging in."
+            );
           } else {
             throw error;
           }
@@ -42,7 +47,6 @@ export default function AuthPage() {
 
         router.push("/dashboard");
       } else {
-        // 📝 SIGNUP
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -53,7 +57,6 @@ export default function AuthPage() {
 
         if (error) throw error;
 
-        // ✅ Show "Check your inbox"
         setVerificationSent(true);
       }
     } catch (err: any) {
@@ -63,7 +66,29 @@ export default function AuthPage() {
     }
   };
 
-  // ✅ EMAIL VERIFICATION UI
+  // ✅ NEW: GOOGLE OAUTH LOGIN
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true);
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) throw error;
+
+      // No router.push needed — Supabase redirects automatically
+    } catch (error) {
+      alert("Error logging in with Google");
+      console.error(error);
+      setIsLoading(false);
+    }
+  };
+
+  // ✅ EMAIL VERIFICATION SCREEN
   if (verificationSent) {
     return (
       <div className="w-full h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -71,7 +96,9 @@ export default function AuthPage() {
           <div className="h-16 w-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <Mail className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Check your inbox</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            Check your inbox
+          </h1>
           <p className="text-slate-600">
             We sent a verification link to <strong>{email}</strong>.
             <br />
@@ -89,7 +116,7 @@ export default function AuthPage() {
     );
   }
 
-  // ✅ NORMAL AUTH UI
+  // ✅ MAIN AUTH UI
   return (
     <div className="w-full h-screen grid grid-cols-1 md:grid-cols-2 overflow-hidden">
       
@@ -101,20 +128,9 @@ export default function AuthPage() {
           <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Sparkles className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">FoundrKit</span>
-        </div>
-
-        <div className="relative z-10 space-y-4">
-          <blockquote className="text-lg font-medium leading-relaxed">
-            "This tool saved me 20 hours a week. It's not just an AI wrapper; it's genuinely like having a co-founder who handles the boring stuff."
-          </blockquote>
-          <div className="flex items-center gap-4">
-            <div className="h-10 w-10 rounded-full bg-slate-700"></div>
-            <div>
-              <div className="font-semibold">Alex Chen</div>
-              <div className="text-sm text-slate-400">Solo Founder, TechStart</div>
-            </div>
-          </div>
+          <span className="text-xl font-bold tracking-tight">
+            FoundrKit
+          </span>
         </div>
       </div>
 
@@ -127,7 +143,9 @@ export default function AuthPage() {
               {isLogin ? "Welcome back" : "Create an account"}
             </h1>
             <p className="text-sm text-slate-500">
-              {isLogin ? "Enter your email to sign in to your HQ." : "Enter your email to create your HQ."}
+              {isLogin
+                ? "Enter your email to sign in to your HQ."
+                : "Enter your email to create your HQ."}
             </p>
           </div>
 
@@ -136,9 +154,8 @@ export default function AuthPage() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
-                placeholder="name@example.com"
-                className="text-black border-slate-300" 
                 type="email"
+                placeholder="name@example.com"
                 disabled={isLoading}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -152,7 +169,6 @@ export default function AuthPage() {
                 id="password"
                 type="password"
                 placeholder="••••••••"
-                className="text-black border-slate-300" 
                 disabled={isLoading}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -160,29 +176,59 @@ export default function AuthPage() {
               />
             </div>
 
-            {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-500 font-medium">
+                {error}
+              </p>
+            )}
 
-            <Button disabled={isLoading} className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white tracking-wide">
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button
+              disabled={isLoading}
+              className="w-full h-12 rounded-xl bg-slate-900 hover:bg-slate-800 text-white tracking-wide"
+            >
+              {isLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
               {isLogin ? "Sign In" : "Sign Up"}
             </Button>
           </form>
 
-          <div className="relative">
+          {/* Divider */}
+          <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-slate-200" />
+              <span className="w-full border-t border-slate-300" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-slate-50 px-2 text-slate-500">Or continue with</span>
+              <span className="bg-white px-2 text-slate-500">
+                Or continue with
+              </span>
             </div>
           </div>
 
-          <Button variant="outline" type="button" disabled={isLoading} className="w-full">
-            <Github className="mr-2 h-4 w-4" /> Github (Demo)
+          {/* Google Button */}
+          <Button
+            variant="outline"
+            type="button"
+            className="w-full"
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+          >
+            <svg
+              className="mr-2 h-4 w-4"
+              viewBox="0 0 488 512"
+            >
+              <path
+                fill="currentColor"
+                d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
+              />
+            </svg>
+            Continue with Google
           </Button>
 
           <p className="px-8 text-center text-sm text-slate-500">
-            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            {isLogin
+              ? "Don't have an account? "
+              : "Already have an account? "}
             <button
               onClick={() => setIsLogin(!isLogin)}
               className="font-semibold text-slate-900 hover:underline underline-offset-4"
