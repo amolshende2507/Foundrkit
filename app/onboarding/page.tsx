@@ -32,6 +32,7 @@ export default function OnboardingWizard() {
   };
 
   // ✅ SAFE INSERT / UPDATE LOGIC WITH USER ID CHECK
+  // ✅ SAFE INSERT / UPDATE LOGIC WITH PROPER REDIRECT FLOW
   const handleOnboarding = async () => {
     setLoading(true);
 
@@ -46,7 +47,6 @@ export default function OnboardingWizard() {
     }
 
     console.log("Saving for User ID:", user.id);
-    // ---------------------------------
 
     const payload = {
       user_id: user.id,
@@ -58,10 +58,12 @@ export default function OnboardingWizard() {
 
     try {
       // Optional: Update profile name
-      await supabase
+      const { error: profileError } = await supabase
         .from("profiles")
         .update({ full_name: formData.full_name })
         .eq("id", user.id);
+
+      if (profileError) throw profileError;
 
       // Check if brand already exists
       const { data: existingRow, error: selectError } = await supabase
@@ -102,13 +104,22 @@ export default function OnboardingWizard() {
         })
       });
 
+      // ✅ SUCCESS BLOCK
+      console.log("Onboarding successful! Redirecting...");
+
+      // 1️⃣ Refresh server components
+      router.refresh();
+
+      // 2️⃣ Redirect to dashboard
       router.push("/dashboard");
+
+      // ❗ DO NOT setLoading(false) here
+      // Keep loading true while redirect happens (smoother UX)
 
     } catch (err: any) {
       console.error("Detailed Error:", err);
       alert(`Error: ${err.message || err.details || "Check console"}`);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only stop loading on error
     }
   };
 
@@ -119,11 +130,10 @@ export default function OnboardingWizard() {
       <div className="w-full max-w-md mb-8 flex items-center justify-between px-2">
         {[1, 2, 3].map((i) => (
           <div key={i} className="flex flex-col items-center gap-2">
-            <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm ${
-              step >= i
+            <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold border-2 transition-all shadow-sm ${step >= i
                 ? "bg-slate-900 text-white border-slate-900"
                 : "bg-white text-slate-300 border-slate-200"
-            }`}>
+              }`}>
               {step > i ? <CheckCircle2 size={20} /> : i}
             </div>
             <span className="text-xs font-medium text-slate-500">
