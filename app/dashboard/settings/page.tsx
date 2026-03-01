@@ -1,30 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
-  CardTitle
+  CardTitle,
 } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function SettingsPage() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   const [companyName, setCompanyName] = useState("");
   const [description, setDescription] = useState("");
   const [tone, setTone] = useState("Professional");
   const [website, setWebsite] = useState("");
 
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Fetch Settings
   useEffect(() => {
-    async function getSettings() {
+    const fetchSettings = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setUserId(user.id);
 
       const { data } = await supabase
         .from("brand_settings")
@@ -38,122 +59,144 @@ export default function SettingsPage() {
         setTone(data.tone_of_voice || "Professional");
         setWebsite(data.website_url || "");
       }
-    }
-    getSettings();
+
+      setLoading(false);
+    };
+
+    fetchSettings();
   }, []);
 
   const handleSave = async () => {
-    setLoading(true);
+    if (!userId) return;
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("User not found");
+    setSaving(true);
+    setMessage(null);
 
-    const updates = {
-      user_id: user.id,
-      company_name: companyName,
-      company_description: description,
-      tone_of_voice: tone,
-      website_url: website,
-      updated_at: new Date(),
-    };
+    try {
+      const { error } = await supabase
+        .from("brand_settings")
+        .upsert(
+          {
+            user_id: userId,
+            company_name: companyName,
+            company_description: description,
+            tone_of_voice: tone,
+            website_url: website,
+            updated_at: new Date(),
+          },
+          { onConflict: "user_id" }
+        );
 
-    const { error } = await supabase
-      .from("brand_settings")
-      .upsert(updates, { onConflict: "user_id" });
+      if (error) throw error;
 
-    if (error) alert("Error: " + error.message);
-    else alert("Brand settings saved!");
+      setMessage({ type: "success", text: "Brand settings saved successfully!" });
 
-    setLoading(false);
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error) {
+      console.error(error);
+      setMessage({ type: "error", text: "Something went wrong. Please try again." });
+    } finally {
+      setSaving(false);
+    }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-6">
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+      </div>
+    );
+  }
 
+  return (
+    <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-          Brand Settings
+        <h1 className="text-3xl font-bold tracking-tight">
+          Settings
         </h1>
-        <p className="text-slate-600 dark:text-slate-400">
-          Teach the AI about your company style.
+        <p className="text-slate-500">
+          Manage your Brand DNA. This data powers your AI tools.
         </p>
       </div>
 
-      <Card className="border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-2xl shadow-sm">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-slate-900 dark:text-slate-100">
-            Company Profile
-          </CardTitle>
-          <CardDescription className="text-slate-500 dark:text-slate-400">
-            The AI will use this to write proposals and emails for you.
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-blue-500" />
+            <CardTitle>Brand DNA</CardTitle>
+          </div>
+          <CardDescription>
+            The AI uses this context to write like you.
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-
-          {/* Company Name */}
+        <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label className="text-slate-700 dark:text-slate-300">Company Name</Label>
-            <Input
-              placeholder="Acme Design Studio"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              className="bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-            />
+            <Label>Company / Project Name</Label>
+            <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
           </div>
 
-          {/* Description */}
           <div className="space-y-2">
-            <Label className="text-slate-700 dark:text-slate-300">
-              What do you do? (The more detail, the better)
-            </Label>
+            <Label>What do you do?</Label>
             <Textarea
-              placeholder="We design high-converting websites for dental clinics..."
-              className="h-32 bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              className="h-24"
             />
           </div>
 
-          {/* Tone + Website */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-slate-700 dark:text-slate-300">Tone of Voice</Label>
-              <Input
-                placeholder="e.g., Witty, Corporate, Friendly"
-                value={tone}
-                onChange={(e) => setTone(e.target.value)}
-                className="bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-slate-700 dark:text-slate-300">Website URL</Label>
-              <Input
-                placeholder="https://..."
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                className="bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Brand Voice</Label>
+            <Select value={tone} onValueChange={setTone}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Professional">Professional</SelectItem>
+                <SelectItem value="Friendly">Friendly</SelectItem>
+                <SelectItem value="Bold">Bold</SelectItem>
+                <SelectItem value="Luxury">Luxury</SelectItem>
+                <SelectItem value="Tech">Technical</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Save Button */}
-          <Button
-            onClick={handleSave}
-            disabled={loading}
-            className="
-              w-full mt-4 h-11 rounded-xl
-              bg-slate-900 hover:bg-slate-800 text-white
-              dark:bg-white dark:text-slate-900 dark:hover:bg-slate-300
-            "
-          >
-            {loading ? "Saving..." : "Save Brand Settings"}
-          </Button>
+          <div className="space-y-2">
+            <Label>Website URL</Label>
+            <Input
+              placeholder="https://..."
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
 
+          {message && (
+            <Alert variant={message.type === "success" ? "default" : "destructive"}>
+              {message.type === "success" ? (
+                <CheckCircle2 className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              <AlertTitle>{message.type === "success" ? "Success" : "Error"}</AlertTitle>
+              <AlertDescription>{message.text}</AlertDescription>
+            </Alert>
+          )}
         </CardContent>
-      </Card>
 
+        <CardFooter className="flex justify-end">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" /> Save Changes
+              </>
+            )}
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
