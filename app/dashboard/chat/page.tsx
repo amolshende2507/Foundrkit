@@ -1,17 +1,34 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
-import dynamic from "next/dynamic";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Send, Bot, User, Plus, MessageSquare, Trash2, Edit2, History } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-
-// ⚡ Lazy load Markdown for better initial load speed
-const ReactMarkdown = dynamic(() => import("react-markdown"), { ssr: false });
+import {
+  Send,
+  Bot,
+  User,
+  Plus,
+  MessageSquare,
+  Trash2,
+  Edit2,
+  History,
+} from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export default function AdvancedChat() {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -19,74 +36,53 @@ export default function AdvancedChat() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const [editTitle, setEditTitle] = useState("");
   const [isRenameOpen, setIsRenameOpen] = useState(false);
   const [sessionToEdit, setSessionToEdit] = useState<string | null>(null);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${user.id}`);
-        const data = await res.json();
-        setSessions(data);
-        if (data.length > 0) setActiveSessionId(data[0].id);
-      }
-    }
-    init();
+    fetchSessions();
   }, []);
 
   useEffect(() => {
-    if (activeSessionId) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages/${activeSessionId}`)
-        .then(res => res.json())
-        .then(setMessages);
-    }
+    if (activeSessionId) fetchMessages(activeSessionId);
   }, [activeSessionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || !activeSessionId || !userId) return;
+  const fetchSessions = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    const userMsg = input;
-    setInput("");
-    
-    // ⚡ Optimistic Update: Add user message immediately
-    setMessages(prev => [...prev, { role: "user", content: userMsg }]);
-    setLoading(true);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${user.id}`);
+    const data = await res.json();
 
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, session_id: activeSessionId, message: userMsg }),
-      });
-      
-      // Instead of refetching everything, we just wait for the next set of messages
-      // This part depends on your backend returning the single AI message or full list
-      const updatedMessages = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages/${activeSessionId}`).then(r => r.json());
-      setMessages(updatedMessages);
-    } finally {
-      setLoading(false);
-    }
+    setSessions(data);
+    if (!activeSessionId && data.length > 0) setActiveSessionId(data[0].id);
+  };
+
+  const fetchMessages = async (sessionId: string) => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages/${sessionId}`);
+    const data = await res.json();
+    setMessages(data);
   };
 
   const handleNewSession = async () => {
-    if (!userId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, title: "New Chat" }),
+      body: JSON.stringify({ user_id: user.id, title: "New Strategy Chat" }),
     });
+
     const newSession = await res.json();
     setSessions([newSession, ...sessions]);
     setActiveSessionId(newSession.id);
@@ -94,81 +90,253 @@ export default function AdvancedChat() {
     setIsMobileMenuOpen(false);
   };
 
-  const handleDeleteSession = async (id: string) => {
-    if (!confirm("Delete?")) return;
-    setSessions(prev => prev.filter(s => s.id !== id));
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${id}`, { method: "DELETE" });
+  const handleSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || !activeSessionId) return;
+
+    const userMsg = input;
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    setLoading(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: user?.id,
+        session_id: activeSessionId,
+        message: userMsg,
+      }),
+    });
+
+    await fetchMessages(activeSessionId);
+    setLoading(false);
+  };
+
+  const handleDeleteSession = async (e: any, id: string) => {
+    e.stopPropagation();
+    if (!confirm("Delete this chat?")) return;
+
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${id}`, {
+      method: "DELETE",
+    });
+
+    setSessions(sessions.filter((s) => s.id !== id));
     if (activeSessionId === id) setActiveSessionId(null);
   };
 
-  const SessionList = useMemo(() => () => (
-    <div className="flex flex-col h-full space-y-2">
-      <Button className="w-full mb-2 h-12 rounded-xl" onClick={handleNewSession}><Plus className="mr-2 h-5 w-5" /> New Chat</Button>
-      <div className="flex-1 overflow-y-auto space-y-1">
-        {sessions.map((s) => (
-          <div key={s.id} onClick={() => {setActiveSessionId(s.id); setIsMobileMenuOpen(false);}}
-            className={`group flex justify-between items-center p-3 rounded-xl cursor-pointer transition-all border ${activeSessionId === s.id ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200" : "border-transparent hover:bg-slate-100 dark:hover:bg-slate-800"}`}>
-            <div className="flex items-center gap-2 truncate text-sm">
-              <MessageSquare size={14} /> <span className="truncate">{s.title}</span>
+  const handleRenameSession = async () => {
+    if (!sessionToEdit) return;
+
+    await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionToEdit}?title=${editTitle}`,
+      { method: "PUT" }
+    );
+
+    setSessions(
+      sessions.map((s) =>
+        s.id === sessionToEdit ? { ...s, title: editTitle } : s
+      )
+    );
+
+    setIsRenameOpen(false);
+  };
+
+  const SessionList = () => (
+    <div className="flex flex-col h-full">
+      <Button
+        className="w-full mb-4 h-12 rounded-xl bg-slate-900 dark:bg-white dark:text-black shadow-lg"
+        onClick={handleNewSession}
+      >
+        <Plus className="mr-2 h-5 w-5" /> New Chat
+      </Button>
+
+      <div className="flex-1 space-y-2 overflow-y-auto pr-2">
+        {sessions.map((session) => (
+          <div
+            key={session.id}
+            onClick={() => {
+              setActiveSessionId(session.id);
+              setIsMobileMenuOpen(false);
+            }}
+            className={`group flex justify-between items-center p-3 
+              rounded-xl cursor-pointer transition-all border 
+              ${
+                activeSessionId === session.id
+                  ? "bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-100 dark:border-blue-700 shadow-md"
+                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-transparent"
+              }`}
+          >
+            <div className="flex items-center gap-2 truncate">
+              <MessageSquare size={16} className="dark:text-slate-300" />
+              <span className="truncate">{session.title}</span>
             </div>
+
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-              <Edit2 size={12} className="hover:text-blue-500" onClick={(e) => { e.stopPropagation(); setSessionToEdit(s.id); setEditTitle(s.title); setIsRenameOpen(true); }} />
-              <Trash2 size={12} className="hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleDeleteSession(s.id); }} />
+              <Edit2
+                size={14}
+                className="text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSessionToEdit(session.id);
+                  setEditTitle(session.title);
+                  setIsRenameOpen(true);
+                }}
+              />
+              <Trash2
+                size={14}
+                className="text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                onClick={(e) => handleDeleteSession(e, session.id)}
+              />
             </div>
           </div>
         ))}
       </div>
     </div>
-  ), [sessions, activeSessionId]);
+  );
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <Card className="hidden md:block w-72 p-4 border-slate-200 dark:border-slate-800 shadow-sm"><SessionList /></Card>
-      
-      <Card className="flex-1 flex flex-col shadow-xl overflow-hidden border-slate-200 dark:border-slate-800">
-        <div className="md:hidden flex justify-between p-4 border-b">
-          <div className="flex items-center gap-2 font-bold"><Bot className="text-blue-500" /> AI Co-Founder</div>
+    <div className="flex h-[calc(100vh-4rem)] gap-6">
+
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block w-80">
+        <Card className="h-full p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl dark:bg-slate-900/50">
+          <SessionList />
+        </Card>
+      </div>
+
+      {/* Chat Area */}
+      <Card className="flex-1 flex flex-col rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden dark:bg-slate-900/50">
+
+        {/* Mobile Header */}
+        <div className="md:hidden flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70">
+          <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-100 text-xs sm:text-sm">
+            <Bot size={18} className="text-blue-600 dark:text-blue-400" />
+            Co-Founder AI
+          </div>
+
           <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-            <SheetTrigger asChild><Button variant="ghost"><History /></Button></SheetTrigger>
-            <SheetContent side="left" className="w-72"><SessionList /></SheetContent>
+            <SheetTrigger asChild>
+              <Button variant="ghost" className="text-slate-800 dark:text-slate-100">
+                <History size={20} />
+              </Button>
+            </SheetTrigger>
+
+            <SheetContent
+              side="left"
+              className="w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800"
+            >
+              <SheetHeader>
+                <SheetTitle className="text-slate-700 dark:text-slate-200">
+                  History
+                </SheetTitle>
+              </SheetHeader>
+              <SessionList />
+            </SheetContent>
           </Sheet>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/30 dark:bg-slate-950/20">
-          {!activeSessionId ? (
-            <div className="h-full flex flex-col items-center justify-center text-slate-400"><Bot size={48} /><p>Select or start a chat</p></div>
-          ) : (
-            messages.map((msg, i) => (
-              <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                {msg.role !== "user" && <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0"><Bot size={14} /></div>}
-                <div className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm shadow-sm ${msg.role === "user" ? "bg-slate-900 text-white dark:bg-white dark:text-black" : "bg-white dark:bg-slate-900 border"}`}>
-                  <ReactMarkdown className="prose dark:prose-invert prose-sm">{msg.content}</ReactMarkdown>
-                </div>
-              </div>
-            ))
-          )}
-          {loading && <div className="flex gap-2 animate-pulse"><div className="w-8 h-8 bg-slate-200 rounded-full" /><div className="w-32 h-8 bg-slate-200 rounded-xl" /></div>}
-          <div ref={messagesEndRef} />
-        </div>
+        {/* Chat Body */}
+        {!activeSessionId ? (
+          <div className="flex flex-col items-center justify-center flex-1 bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500">
+            <Bot size={48} />
+            <p className="mt-4 text-sm">Start a new intelligent session</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 
+              bg-white dark:bg-slate-950 transition-colors">
 
-        <div className="p-4 bg-white dark:bg-slate-900 border-t">
-          <form onSubmit={handleSend} className="flex gap-2 max-w-4xl mx-auto">
-            <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type a message..." disabled={loading} className="rounded-xl h-11" />
-            <Button type="submit" disabled={loading || !input.trim()} className="h-11 px-6 rounded-xl bg-blue-600"><Send size={18} /></Button>
-          </form>
-        </div>
+              {messages.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex gap-3 ${
+                    msg.role === "user" ? "justify-end" : ""
+                  }`}
+                >
+                  {msg.role === "ai" && (
+                    <div className="w-9 h-9 flex items-center justify-center bg-blue-600 dark:bg-blue-500 text-white rounded-full shadow-md">
+                      <Bot size={16} />
+                    </div>
+                  )}
+
+                  <div
+                    className={`px-4 py-2 rounded-2xl text-xs sm:text-sm max-w-[80%] shadow-md
+                      ${
+                        msg.role === "user"
+                          ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-br-none"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-none"
+                      }`}
+                  >
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
+
+                  {msg.role === "user" && (
+                    <div className="w-9 h-9 flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-200 rounded-full shadow-md">
+                      <User size={16} />
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {loading && (
+                <div className="flex gap-3 animate-pulse">
+                  <div className="w-9 h-9 rounded-full bg-blue-600 dark:bg-blue-400"></div>
+                  <div className="w-24 h-10 bg-slate-200 dark:bg-slate-700 rounded-2xl"></div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Input Box */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <form
+                onSubmit={handleSend}
+                className="flex gap-3 max-w-4xl mx-auto"
+              >
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Ask anything..."
+                  disabled={loading}
+                  className="flex-1 h-10 sm:h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
+                />
+                <Button
+                  type="submit"
+                  disabled={loading || !input.trim()}
+                  className="h-12 w-12 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 rounded-xl"
+                >
+                  <Send size={18} />
+                </Button>
+              </form>
+            </div>
+          </>
+        )}
       </Card>
 
+      {/* Rename Dialog */}
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Rename Chat</DialogTitle></DialogHeader>
-          <div className="flex gap-2 mt-4">
-            <Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
-            <Button onClick={async () => {
-              await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionToEdit}?title=${editTitle}`, { method: "PUT" });
-              setSessions(s => s.map(x => x.id === sessionToEdit ? {...x, title: editTitle} : x));
-              setIsRenameOpen(false);
-            }}>Save</Button>
+        <DialogContent className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+          <DialogHeader>
+            <DialogTitle className="text-slate-800 dark:text-slate-200">
+              Rename Chat
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2 pt-4">
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+            />
+            <Button
+              onClick={handleRenameSession}
+              className="bg-slate-900 dark:bg-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200"
+            >
+              Save
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
