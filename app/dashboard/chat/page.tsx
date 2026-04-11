@@ -1,3 +1,4 @@
+//app\dashboard\chat\page.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -342,4 +343,4 @@ export default function AdvancedChat() {
       </Dialog>
     </div>
   );
-}
+} 

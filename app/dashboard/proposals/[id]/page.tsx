@@ -1,3 +1,4 @@
+// app\dashboard\proposals\[id]\page.tsx
 "use client";
 
 import { useEffect, useState, use } from "react";

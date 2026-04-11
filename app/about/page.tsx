@@ -1,3 +1,4 @@
+//app\about\page.tsx
 "use client";
 
 import { SiteFooter } from "@/components/landing/Footer";
