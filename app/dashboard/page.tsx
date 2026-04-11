@@ -17,23 +17,32 @@ import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { Button } from "@/components/ui/button";
 
 export default function Dashboard() {
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
   const [userName, setUserName] = useState("Founder");
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Step 2: Refactored useEffect (Fetch user once + fetch stats)
   useEffect(() => {
-    async function fetchData() {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+      const uid = user?.id ?? null;
+
+      setUserId(uid);
+
+      if (uid && user) {
         setUserName(user.user_metadata?.full_name?.split(" ")[0] || "Founder");
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/stats/${user.id}`);
+        // Fetch dashboard stats using cached UID
+        const res = await fetch(`/dashboard/stats/${uid}`);
         const data = await res.json();
         setStats(data);
       }
+
       setLoading(false);
-    }
-    fetchData();
+    };
+
+    init();
   }, []);
 
   if (loading) return <DashboardSkeleton />;

@@ -35,38 +35,50 @@ export default function SettingsPage() {
   const [tone, setTone] = useState("Professional");
   const [website, setWebsite] = useState("");
 
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Kept userId state
 
-  // Fetch Settings
+  // ✅ Step 2: Extracted fetchSettings (Clean Architecture)
+  const fetchSettings = async (uid?: string) => {
+    const id = uid || userId;
+    if (!id) return;
+
+    setLoading(true);
+
+    const { data } = await supabase
+      .from("brand_settings")
+      .select("*")
+      .eq("user_id", id)
+      .single();
+
+    if (data) {
+      setCompanyName(data.company_name || "");
+      setDescription(data.company_description || "");
+      setTone(data.tone_of_voice || "Professional");
+      setWebsite(data.website_url || "");
+    }
+
+    setLoading(false);
+  };
+
+  // ✅ Step 3: Refactored useEffect (Clean init pattern)
   useEffect(() => {
-    const fetchSettings = async () => {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const uid = user?.id ?? null;
+
+      setUserId(uid);
+
+      if (uid) {
+        fetchSettings(uid);
+      } else {
         setLoading(false);
-        return;
       }
-
-      setUserId(user.id);
-
-      const { data } = await supabase
-        .from("brand_settings")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (data) {
-        setCompanyName(data.company_name || "");
-        setDescription(data.company_description || "");
-        setTone(data.tone_of_voice || "Professional");
-        setWebsite(data.website_url || "");
-      }
-
-      setLoading(false);
     };
 
-    fetchSettings();
+    init();
   }, []);
 
+  // ✅ Step 4: handleSave uses correctly cached userId
   const handleSave = async () => {
     if (!userId) return;
 

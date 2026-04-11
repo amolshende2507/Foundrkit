@@ -17,41 +17,53 @@ const PDFDownloadLink = dynamic(
     { ssr: false, loading: () => <Button disabled>Loading PDF...</Button> }
 );
 
-export default function ProposalDetail({ params }: { params: Promise<{ id: string }> }){
+export default function ProposalDetail({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
-
     const { id } = use(params);
+
+    const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
     const [proposal, setProposal] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [companyName, setCompanyName] = useState("FoundrKit User");
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState("");
 
+    // ✅ Step 2: Refactored useEffect (Clean init pattern)
     useEffect(() => {
-        async function fetchData() {
+        const init = async () => {
             if (!id || id === "undefined") return;
 
+            // ✅ get user once
             const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
+            const uid = user?.id ?? null;
+
+            setUserId(uid);
+
+            // ✅ fetch brand settings using cached userId
+            if (uid) {
                 const { data: brand } = await supabase
                     .from("brand_settings")
                     .select("company_name")
-                    .eq("user_id", user.id)
+                    .eq("user_id", uid)
                     .single();
+
                 if (brand) setCompanyName(brand.company_name);
             }
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/detail/${id}`);
+            // ✅ fetch proposal (independent)
+            const response = await fetch(`/proposals/detail/${id}`);
             const data = await response.json();
+
             setProposal(data);
             setEditContent(data.content);
             setLoading(false);
-        }
-        fetchData();
+        };
+
+        init();
     }, [id]);
 
     const handleUpdate = async () => {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/${id}`, {
+        await fetch(`/proposals/${id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ content: editContent })

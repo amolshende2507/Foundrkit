@@ -53,6 +53,7 @@ export default function BrandingSuite() {
   const [slogans, setSlogans] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState("");
   const [savedAssets, setSavedAssets] = useState<any[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
 
   const [generationType, setGenerationType] = useState<
@@ -60,7 +61,18 @@ export default function BrandingSuite() {
   >(null);
 
   useEffect(() => {
-    fetchSavedAssets();
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id ?? null);
+
+      if (user?.id) {
+        fetchSavedAssets(user.id);
+      } else {
+        setPageLoading(false);
+      }
+    };
+
+    init();
   }, []);
 
   const fetchSavedAssets = async () => {
@@ -70,7 +82,7 @@ export default function BrandingSuite() {
       if (!user) return;
 
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/branding/assets/${user.id}`
+        `/branding/assets/${user.id}`
       );
       const data = await res.json();
       setSavedAssets(data);
@@ -88,19 +100,18 @@ export default function BrandingSuite() {
       return;
     }
 
+    if (!userId) return;
+
     setGenerationType(type);
     setLoading(true);
-    setLogoUrl(""); // reset logo
-
-    const { data: { user } } = await supabase.auth.getUser();
+    setLogoUrl("");
 
     try {
-      // 1️⃣ Generate text (name, slogan, or logo prompt)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/branding/generate`, {
+      const res = await fetch(`/branding/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: user?.id,
+          user_id: userId, // ✅ use cached id
           asset_type: type,
           keywords,
           style,
@@ -114,35 +125,24 @@ export default function BrandingSuite() {
           const list = JSON.parse(data.result);
           type === "name" ? setNames(list) : setSlogans(list);
         } catch {
-          // Fallback if AI messes up JSON format
           if (type === "name") {
-            // Try to make it an object if it comes back as string
             setNames([{ name: data.result, meaning: "AI generated result" }]);
           } else {
             setSlogans([data.result]);
           }
         }
-      }
-      else {
-        // 2️⃣ Generate logo image from backend (Hugging Face)
-        const imageRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/branding/generate-image`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt: data.result,
-            }),
-          }
-        );
+      } else {
+        const imageRes = await fetch(`/branding/generate-image`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: data.result,
+          }),
+        });
 
-        if (!imageRes.ok) {
-          throw new Error("Image generation failed");
-        }
+        if (!imageRes.ok) throw new Error("Image generation failed");
 
         const imageData = await imageRes.json();
-
-        // Base64 image returned from backend
         setLogoUrl(imageData.image_url);
       }
     } catch (error) {
@@ -171,14 +171,13 @@ export default function BrandingSuite() {
   };
 
   const handleSaveAsset = async (type: string, content: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!userId) return;
 
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/branding/assets/save`, {
+    await fetch(`/branding/assets/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: user.id,
+        user_id: userId, // ✅ cached
         asset_type: type,
         content,
       }),
@@ -189,7 +188,7 @@ export default function BrandingSuite() {
 
   const handleDeleteAsset = async (id: string) => {
     if (!confirm("Remove this asset?")) return;
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/branding/assets/${id}`, {
+    await fetch(`/branding/assets/${id}`, {
       method: "DELETE",
     });
     setSavedAssets(savedAssets.filter((a) => a.id !== id));

@@ -23,55 +23,83 @@ import {
 } from "@/components/ui/dialog";
 
 export default function TaskManager() {
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
   const [tasks, setTasks] = useState<any[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [aiGoal, setAiGoal] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
 
-  async function fetchTasks() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${user.id}`);
+  // ✅ Step 2: Fix fetchTasks (Uses cached userId)
+  const fetchTasks = async (uid?: string) => {
+    const id = uid || userId;
+    if (!id) return;
+
+    const res = await fetch(`/tasks/${id}`);
     const data = await res.json();
     setTasks(data);
-  }
+  };
 
+  // ✅ Step 3: Refactored useEffect (Fetch user once)
   useEffect(() => {
-    fetchTasks();
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
+
+      setUserId(uid);
+
+      if (uid) {
+        fetchTasks(uid);
+      }
+    };
+
+    init();
   }, []);
 
+  // ✅ Step 4: Fix handleAddTask (Uses cached userId)
   const handleAddTask = async () => {
-    if (!newTaskTitle) return;
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!newTaskTitle || !userId) return;
 
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/add`, {
+    await fetch(`/tasks/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user?.id, title: newTaskTitle, status: "todo" })
+      body: JSON.stringify({
+        user_id: userId,
+        title: newTaskTitle,
+        status: "todo"
+      })
     });
 
     setNewTaskTitle("");
     fetchTasks();
   };
 
+  // ✅ Step 5: Fix handleAiGenerate (Uses cached userId)
   const handleAiGenerate = async () => {
-    setAiLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!userId) return;
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/generate`, {
+    setAiLoading(true);
+
+    const res = await fetch(`/tasks/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user?.id, goal: aiGoal })
+      body: JSON.stringify({
+        user_id: userId,
+        goal: aiGoal
+      })
     });
 
     const data = await res.json();
 
     for (const t of data.tasks) {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/add`, {
+      await fetch(`/tasks/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: user?.id, title: t, status: "todo" })
+        body: JSON.stringify({
+          user_id: userId,
+          title: t,
+          status: "todo"
+        })
       });
     }
 
@@ -82,12 +110,12 @@ export default function TaskManager() {
 
   const updateStatus = async (id: string, newStatus: string) => {
     setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${id}?status=${newStatus}`, { method: "PUT" });
+    await fetch(`/tasks/${id}?status=${newStatus}`, { method: "PUT" });
   };
 
   const handleDelete = async (id: string) => {
     setTasks(tasks.filter(t => t.id !== id));
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tasks/${id}`, { method: "DELETE" });
+    await fetch(`/tasks/${id}`, { method: "DELETE" });
   };
 
   return (

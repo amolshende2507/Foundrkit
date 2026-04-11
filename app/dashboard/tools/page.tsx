@@ -1,3 +1,4 @@
+//app\dashboard\tools\page.tsx
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -147,11 +148,22 @@ const TOOLS = [
 /* -------------------------------------------------------------------------- */
 
 export default function ToolsPage() {
+    const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
     const [activeTool, setActiveTool] = useState<any>(null);
     const [formData, setFormData] = useState<any>({});
     const [result, setResult] = useState("");
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
+
+    // ✅ Step 2: Fetch user ONCE and cache it
+    useEffect(() => {
+        const init = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUserId(user?.id ?? null);
+        };
+
+        init();
+    }, []);
 
     /* Reset when tool changes */
     const openTool = (tool: any) => {
@@ -165,16 +177,19 @@ export default function ToolsPage() {
         setFormData((prev: any) => ({ ...prev, [name]: value }));
     };
 
+    // ✅ Step 3: Refactored handleRunTool (Uses cached userId)
     const handleRunTool = async () => {
+        if (!userId) {
+            alert("User not authenticated");
+            return;
+        }
+
         setLoading(true);
         setResult("");
 
-        const { data: { user } } = await supabase.auth.getUser();
-
-        // 1. DEBUG: Log what we are sending
         console.log("🚀 Sending Request to:", `${process.env.NEXT_PUBLIC_API_URL}/tools/run`);
         console.log("📦 Payload:", {
-            user_id: user?.id,
+            user_id: userId,
             tool_id: activeTool.id,
             inputs: formData,
         });
@@ -184,45 +199,43 @@ export default function ToolsPage() {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    user_id: user?.id || "guest", // Fallback if user is null
+                    user_id: userId, // ✅ cached
                     tool_id: activeTool.id,
                     inputs: formData,
                 }),
             });
 
-            // 2. DEBUG: Check if the server rejected it
             if (!res.ok) {
                 const errorText = await res.text();
                 console.error("❌ Server Error:", res.status, errorText);
                 alert(`Server Error ${res.status}: ${errorText}`);
-                return; // Stop here
+                return;
             }
 
             const data = await res.json();
 
-            // 3. DEBUG: Log the success response
             console.log("✅ Server Response:", data);
 
             if (data.result) {
                 setResult(data.result);
             } else {
-                console.warn("⚠️ Response missing 'result' field:", data);
-                alert("AI finished but returned empty result. Check console.");
+                alert("AI finished but returned empty result.");
             }
 
         } catch (error) {
-            // 4. DEBUG: Network or Logic errors
             console.error("🚨 Network/Logic Error:", error);
-            alert("Something went wrong. Check the Console (F12) for details.");
+            alert("Something went wrong.");
         } finally {
             setLoading(false);
         }
     };
+
     const copyToClipboard = () => {
         navigator.clipboard.writeText(result);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+    
     const resultRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -233,7 +246,6 @@ export default function ToolsPage() {
             });
         }
     }, [result]);
-
 
     return (
         <div className="space-y-10 animate-in fade-in duration-500">

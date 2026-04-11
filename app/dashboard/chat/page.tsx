@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 
 export default function AdvancedChat() {
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Added userId state
   const [sessions, setSessions] = useState<any[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -45,8 +46,20 @@ export default function AdvancedChat() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // ✅ Step 2: Fetch user ONCE + sessions together
   useEffect(() => {
-    fetchSessions();
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
+
+      setUserId(uid);
+
+      if (uid) {
+        fetchSessions(uid);
+      }
+    };
+
+    init();
   }, []);
 
   useEffect(() => {
@@ -57,11 +70,12 @@ export default function AdvancedChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const fetchSessions = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  // ✅ Step 3: Updated fetchSessions to use cached ID
+  const fetchSessions = async (uid?: string) => {
+    const id = uid || userId;
+    if (!id) return;
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${user.id}`);
+    const res = await fetch(`/chat/sessions/${id}`);
     const data = await res.json();
 
     setSessions(data);
@@ -69,19 +83,19 @@ export default function AdvancedChat() {
   };
 
   const fetchMessages = async (sessionId: string) => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/messages/${sessionId}`);
+    const res = await fetch(`/chat/messages/${sessionId}`);
     const data = await res.json();
     setMessages(data);
   };
 
+  // ✅ Step 4: Fixed handleNewSession to use cached userId
   const handleNewSession = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!userId) return;
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions`, {
+    const res = await fetch(`/chat/sessions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: user.id, title: "New Strategy Chat" }),
+      body: JSON.stringify({ user_id: userId, title: "New Strategy Chat" }),
     });
 
     const newSession = await res.json();
@@ -91,22 +105,21 @@ export default function AdvancedChat() {
     setIsMobileMenuOpen(false);
   };
 
+  // ✅ Step 5: Fixed handleSend to use cached userId (prevents delay)
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || !activeSessionId) return;
+    if (!input.trim() || !activeSessionId || !userId) return;
 
     const userMsg = input;
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/send`, {
+    await fetch(`/chat/send`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: user?.id,
+        user_id: userId,
         session_id: activeSessionId,
         message: userMsg,
       }),
@@ -120,7 +133,7 @@ export default function AdvancedChat() {
     e.stopPropagation();
     if (!confirm("Delete this chat?")) return;
 
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${id}`, {
+    await fetch(`/chat/sessions/${id}`, {
       method: "DELETE",
     });
 
@@ -132,7 +145,7 @@ export default function AdvancedChat() {
     if (!sessionToEdit) return;
 
     await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/chat/sessions/${sessionToEdit}?title=${editTitle}`,
+      `/chat/sessions/${sessionToEdit}?title=${editTitle}`,
       { method: "PUT" }
     );
 
@@ -343,4 +356,4 @@ export default function AdvancedChat() {
       </Dialog>
     </div>
   );
-} 
+}

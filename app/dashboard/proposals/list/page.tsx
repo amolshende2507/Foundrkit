@@ -18,25 +18,43 @@ interface Proposal {
 export default function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Added userId state
 
+  // ✅ Step 2: Extracted fetch function
+  const fetchProposals = async (uid?: string) => {
+    const id = uid || userId;
+    if (!id) return;
+
+    setLoading(true);
+
+    const response = await fetch(`/proposals/${id}`);
+    const data = await response.json();
+
+    setProposals(data);
+    setLoading(false);
+  };
+
+  // ✅ Step 3: Refactored useEffect (Clean init pattern)
   useEffect(() => {
-    async function fetchProposals() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/${user.id}`);
-      const data = await response.json();
-      setProposals(data);
-      setLoading(false);
-    }
-    fetchProposals();
+      setUserId(uid);
+
+      if (uid) {
+        fetchProposals(uid);
+      } else {
+        setLoading(false);
+      }
+    };
+
+    init();
   }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this proposal?")) return;
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/${id}`, { method: "DELETE" });
+    await fetch(`/proposals/${id}`, { method: "DELETE" });
     setProposals(proposals.filter((p) => p.id !== id));
   };
 

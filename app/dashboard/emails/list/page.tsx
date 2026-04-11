@@ -11,23 +11,43 @@ import Link from "next/link";
 export default function EmailList() {
   const [emails, setEmails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
 
+  // ✅ Step 2: Extract fetchEmails
+  const fetchEmails = async (uid?: string) => {
+    const id = uid || userId;
+    if (!id) return;
+
+    setLoading(true);
+
+    const res = await fetch(`/emails/${id}`);
+    const data = await res.json();
+
+    setEmails(data);
+    setLoading(false);
+  };
+
+  // ✅ Step 3: Refactored useEffect (Clean init pattern)
   useEffect(() => {
-    async function fetchEmails() {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const uid = user?.id ?? null;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emails/${user.id}`);
-      const data = await res.json();
-      setEmails(data);
-      setLoading(false);
-    }
-    fetchEmails();
+      setUserId(uid);
+
+      if (uid) {
+        fetchEmails(uid);
+      } else {
+        setLoading(false);
+      }
+    };
+
+    init();
   }, []);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this draft?")) return;
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emails/${id}`, { method: "DELETE" });
+    await fetch(`/emails/${id}`, { method: "DELETE" });
     setEmails(emails.filter((e) => e.id !== id));
   };
 

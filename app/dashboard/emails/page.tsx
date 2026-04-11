@@ -27,7 +27,8 @@ import { useRouter } from "next/navigation";
 export default function EmailGenerator() {
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
-
+  
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
   const [clients, setClients] = useState<any[]>([]);
   const router = useRouter();
 
@@ -40,38 +41,42 @@ export default function EmailGenerator() {
   const [result, setResult] = useState<{ subject: string; body: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Fetch Clients
+  // ✅ Step 2: Refactored useEffect (Fetch user once, then fetch clients)
   useEffect(() => {
-    async function fetchClients() {
+    const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const uid = user?.id ?? null;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${user.id}`);
+      setUserId(uid);
+
+      if (!uid) return;
+
+      const res = await fetch(`/clients/${uid}`);
       const data = await res.json();
       setClients(data);
-    }
-    fetchClients();
+    };
+
+    init();
   }, []);
 
-  // Generate Email
+  // ✅ Step 3: Fixed handleGenerate (Uses cached userId)
   const handleGenerate = async () => {
     if (!selectedClientName) {
       alert("Please select a client.");
       return;
     }
 
+    if (!userId) return;
+
     setLoading(true);
     setResult(null);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/generate-email`, {
+      const response = await fetch(`/generate-email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_id: user.id,
+          user_id: userId, // ✅ cached
           client_name: selectedClientName,
           email_type: emailType,
           context: context || "General context"
@@ -103,19 +108,17 @@ export default function EmailGenerator() {
     window.location.href = `mailto:?subject=${encodeURIComponent(result.subject)}&body=${encodeURIComponent(result.body)}`;
   };
 
-  // Save Email
+  // ✅ Step 4: Fixed handleSave (Uses cached userId)
   const handleSave = async () => {
-    if (!result) return;
+    if (!result || !userId) return;
+
     setSaveLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emails/save`, {
+    await fetch(`/emails/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: user.id,
+        user_id: userId, // ✅ cached
         client_name: selectedClientName,
         subject: result.subject,
         body: result.body,

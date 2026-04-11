@@ -1,7 +1,7 @@
 //app\dashboard\clients\page.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,47 +14,75 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function ClientsPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Kept userId state
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const [form, setForm] = useState({ name: "", email: "", industry: "", notes: "" });
 
-  const fetchClients = useCallback(async (uid: string) => {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${uid}`);
+  // ✅ Step 2: Simplified fetchClients (Removed useCallback)
+  const fetchClients = async (uid?: string) => {
+    const id = uid || userId;
+    if (!id) return;
+
+    setLoading(true);
+
+    const res = await fetch(`/clients/${id}`);
     const data = await res.json();
+
     setClients(data);
     setLoading(false);
+  };
+
+  // ✅ Step 3: Clean useEffect (Consistent init pattern)
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
+
+      setUserId(uid);
+
+      if (uid) {
+        fetchClients(uid);
+      } else {
+        setLoading(false);
+      }
+    };
+
+    init();
   }, []);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setUserId(user.id);
-        fetchClients(user.id);
-      }
-    });
-  }, [fetchClients]);
-
+  // ✅ Step 4: Cleaned handleAddClient (Uses cached userId)
   const handleAddClient = async () => {
     if (!userId || !form.name) return;
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/add`, {
+
+    await fetch(`/clients/add`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, ...form }),
+      body: JSON.stringify({
+        user_id: userId,
+        ...form,
+      }),
     });
+
     setIsOpen(false);
     setForm({ name: "", email: "", industry: "", notes: "" });
-    fetchClients(userId);
+
+    fetchClients(); // uses cached userId
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete client?")) return;
     setClients(prev => prev.filter(c => c.id !== id)); // Optimistic
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${id}`, { method: "DELETE" });
+    await fetch(`/clients/${id}`, { method: "DELETE" });
   };
 
   const filteredClients = clients.filter(c => c.name.toLowerCase().includes(search.toLowerCase()));
+
+  // ✅ Step 5: Optional Early Return (Better UX 🔥)
+  if (!userId && !loading) {
+    return <div className="text-center text-slate-400 mt-20">Not authenticated</div>;
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">

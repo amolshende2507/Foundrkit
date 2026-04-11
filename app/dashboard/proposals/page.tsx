@@ -35,6 +35,7 @@ export default function ProposalGenerator() {
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
 
+  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
   const [clients, setClients] = useState<any[]>([]);
   const [selectedClient, setSelectedClient] = useState<any>(null);
 
@@ -42,44 +43,52 @@ export default function ProposalGenerator() {
   const [generatedProposal, setGeneratedProposal] = useState("");
   const [companyName, setCompanyName] = useState("FoundrKit User");
 
+  // ✅ Step 2: Refactored useEffect (Fetch user once, cascade data)
   useEffect(() => {
-    async function fetchData() {
+    const init = async () => {
       setPageLoading(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
 
-      const clientsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${user.id}`);
+      setUserId(uid);
+
+      if (!uid) {
+        setPageLoading(false);
+        return;
+      }
+
+      // ✅ Fetch clients using cached UID
+      const clientsRes = await fetch(`/clients/${uid}`);
       const clientsData = await clientsRes.json();
       setClients(clientsData);
 
+      // ✅ Fetch branding using cached UID
       const { data: brand } = await supabase
         .from("brand_settings")
         .select("company_name")
-        .eq("user_id", user.id)
+        .eq("user_id", uid)
         .single();
 
       if (brand) setCompanyName(brand.company_name);
 
       setPageLoading(false);
-    }
-    fetchData();
+    };
+
+    init();
   }, []);
 
+  // ✅ Step 3: Fixed handleGenerate (Uses cached userId)
   const handleGenerate = async () => {
     if (!selectedClient || !projectDetails) {
       alert("Please select a client and enter project scope.");
       return;
     }
 
+    if (!userId) return;
+
     setLoading(true);
     setGeneratedProposal("");
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
     const enrichedDetails = `
 Project Scope: ${projectDetails}
@@ -88,11 +97,11 @@ Client Industry: ${selectedClient.industry || "General"}
 Client Notes: ${selectedClient.notes || "None"}
 `;
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/generate-proposal`, {
+    const res = await fetch(`/generate-proposal`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: user?.id,
+        user_id: userId, // ✅ cached
         client_name: selectedClient.name,
         project_details: enrichedDetails,
       }),
@@ -103,20 +112,17 @@ Client Notes: ${selectedClient.notes || "None"}
     setLoading(false);
   };
 
+  // ✅ Step 4: Fixed handleSave (Uses cached userId)
   const handleSave = async () => {
-    if (!generatedProposal || !selectedClient) return;
+    if (!generatedProposal || !selectedClient || !userId) return;
 
     setSaveLoading(true);
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/proposals/save`, {
+    await fetch(`/proposals/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        user_id: user?.id,
+        user_id: userId, // ✅ cached
         client_name: selectedClient.name,
         project_details: projectDetails,
         content: generatedProposal,
