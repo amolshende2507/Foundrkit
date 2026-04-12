@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api"; // ✅ Step 1: Import the helper
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,99 +24,115 @@ import {
 } from "@/components/ui/dialog";
 
 export default function TaskManager() {
-  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
+  const [userId, setUserId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<any[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [aiGoal, setAiGoal] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [isAiOpen, setIsAiOpen] = useState(false);
 
-  // ✅ Step 2: Fix fetchTasks (Uses cached userId)
+  // ✅ Step 2: Optimized fetchTasks
   const fetchTasks = async (uid?: string) => {
     const id = uid || userId;
     if (!id) return;
 
-    const res = await fetch(`/tasks/${id}`);
-    const data = await res.json();
-    setTasks(data);
+    try {
+        const data = await apiFetch(`/tasks/${id}`);
+        setTasks(Array.isArray(data) ? data : []);
+    } catch (error) {
+        console.error("Failed to fetch tasks:", error);
+    }
   };
 
-  // ✅ Step 3: Refactored useEffect (Fetch user once)
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const uid = user?.id ?? null;
-
       setUserId(uid);
 
       if (uid) {
         fetchTasks(uid);
       }
     };
-
     init();
   }, []);
 
-  // ✅ Step 4: Fix handleAddTask (Uses cached userId)
+  // ✅ Step 3: Optimized Add Task
   const handleAddTask = async () => {
     if (!newTaskTitle || !userId) return;
 
-    await fetch(`/tasks/add`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userId,
-        title: newTaskTitle,
-        status: "todo"
-      })
-    });
-
-    setNewTaskTitle("");
-    fetchTasks();
+    try {
+        await apiFetch(`/tasks/add`, {
+            method: "POST",
+            body: JSON.stringify({
+                user_id: userId,
+                title: newTaskTitle,
+                status: "todo"
+            })
+        });
+        setNewTaskTitle("");
+        fetchTasks();
+    } catch (error) {
+        alert("Failed to add task.");
+    }
   };
 
-  // ✅ Step 5: Fix handleAiGenerate (Uses cached userId)
+  // ✅ Step 4: VERY IMPORTANT⚡ Optimized AI Generation (Bulk Add)
   const handleAiGenerate = async () => {
     if (!userId) return;
 
     setAiLoading(true);
+    try {
+        // 1. Generate the task list via AI
+        const res = await apiFetch(`/tasks/generate`, {
+            method: "POST",
+            body: JSON.stringify({
+                user_id: userId,
+                goal: aiGoal
+            })
+        });
 
-    const res = await fetch(`/tasks/generate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userId,
-        goal: aiGoal
-      })
-    });
+        // 2. Save all tasks at once using the bulk-add endpoint
+        if (res.tasks && res.tasks.length > 0) {
+            await apiFetch(`/tasks/bulk-add`, {
+                method: "POST",
+                body: JSON.stringify({
+                    user_id: userId,
+                    tasks: res.tasks // Array of strings
+                })
+            });
+        }
 
-    const data = await res.json();
-
-    for (const t of data.tasks) {
-      await fetch(`/tasks/add`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          title: t,
-          status: "todo"
-        })
-      });
+        setAiLoading(false);
+        setIsAiOpen(false);
+        setAiGoal("");
+        fetchTasks();
+    } catch (error) {
+        console.error(error);
+        alert("AI Generation failed.");
+        setAiLoading(false);
     }
-
-    setAiLoading(false);
-    setIsAiOpen(false);
-    fetchTasks();
   };
 
+  // ✅ Step 5: Optimized Update Status
   const updateStatus = async (id: string, newStatus: string) => {
     setTasks(tasks.map(t => t.id === id ? { ...t, status: newStatus } : t));
-    await fetch(`/tasks/${id}?status=${newStatus}`, { method: "PUT" });
+    try {
+        await apiFetch(`/tasks/${id}?status=${newStatus}`, { method: "PUT" });
+    } catch (error) {
+        fetchTasks(); // Rollback on failure
+    }
   };
 
+  // ✅ Step 6: Optimized Delete
   const handleDelete = async (id: string) => {
+    if (!confirm("Delete this task?")) return;
     setTasks(tasks.filter(t => t.id !== id));
-    await fetch(`/tasks/${id}`, { method: "DELETE" });
+    try {
+        await apiFetch(`/tasks/${id}`, { method: "DELETE" });
+    } catch (error) {
+        fetchTasks(); // Rollback on failure
+    }
   };
 
   return (
@@ -150,7 +167,7 @@ export default function TaskManager() {
 
             <div className="p-6 space-y-5">
               <Input
-                placeholder="Describe your goal..."
+                placeholder="Describe your goal (e.g. Build a landing page)..."
                 value={aiGoal}
                 onChange={(e) => setAiGoal(e.target.value)}
                 className="h-12 rounded-xl bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
@@ -158,7 +175,7 @@ export default function TaskManager() {
 
               <Button
                 onClick={handleAiGenerate}
-                disabled={aiLoading}
+                disabled={aiLoading || !aiGoal.trim()}
                 className="w-full h-12 rounded-xl bg-purple-600 hover:bg-purple-700 text-white"
               >
                 {aiLoading ? "Generating Tasks…" : "Generate Tasks"}
@@ -174,10 +191,12 @@ export default function TaskManager() {
           placeholder="Add a high priority task..."
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
           className="h-12 rounded-xl bg-white dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
         />
         <Button
           onClick={handleAddTask}
+          disabled={!newTaskTitle.trim()}
           className="h-12 px-6 rounded-xl bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-300 text-white shadow-md"
         >
           <Plus className="mr-1 h-5 w-5" />

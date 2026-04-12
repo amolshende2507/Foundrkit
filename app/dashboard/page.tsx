@@ -15,14 +15,15 @@ import {
 } from "lucide-react";
 import { DashboardSkeleton } from "@/components/DashboardSkeleton";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api"; // ✅ Step 1: Helper imported
 
 export default function Dashboard() {
-  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
+  const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState("Founder");
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Step 2: Refactored useEffect (Fetch user once + fetch stats)
+  // ✅ Step 2: Optimized fetchData using apiFetch
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -33,10 +34,13 @@ export default function Dashboard() {
       if (uid && user) {
         setUserName(user.user_metadata?.full_name?.split(" ")[0] || "Founder");
 
-        // Fetch dashboard stats using cached UID
-        const res = await fetch(`/dashboard/stats/${uid}`);
-        const data = await res.json();
-        setStats(data);
+        try {
+            // ✅ Use apiFetch (Handles JWT and URL automatically)
+            const data = await apiFetch(`/dashboard/stats/${uid}`);
+            setStats(data);
+        } catch (error) {
+            console.error("Failed to load dashboard stats:", error);
+        }
       }
 
       setLoading(false);
@@ -75,7 +79,7 @@ export default function Dashboard() {
         {[
           {
             label: "Proposals",
-            value: stats?.proposal_count,
+            value: stats?.proposal_count ?? 0,
             icon: FileText,
             color: "text-blue-600 dark:text-blue-400",
             border: "border-blue-600 dark:border-blue-400",
@@ -83,7 +87,7 @@ export default function Dashboard() {
           },
           {
             label: "Clients",
-            value: stats?.client_count,
+            value: stats?.client_count ?? 0,
             icon: MessageSquare,
             color: "text-purple-600 dark:text-purple-400",
             border: "border-purple-600 dark:border-purple-400",
@@ -91,7 +95,7 @@ export default function Dashboard() {
           },
           {
             label: "Active Tasks",
-            value: stats?.active_tasks,
+            value: stats?.active_tasks ?? 0,
             icon: CheckSquare,
             color: "text-orange-600 dark:text-orange-400",
             border: "border-orange-600 dark:border-orange-400",
@@ -99,7 +103,7 @@ export default function Dashboard() {
           },
           {
             label: "Productivity",
-            value: `${stats?.productivity_score}%`,
+            value: stats?.productivity_score !== null ? `${stats.productivity_score}%` : "—",
             icon: TrendingUp,
             color: "text-green-600 dark:text-green-400",
             border: "border-green-600 dark:border-green-400",
@@ -233,8 +237,7 @@ export default function Dashboard() {
                 </div>
               ))}
 
-              {stats?.recent_proposals?.length === 0 &&
-                stats?.recent_tasks?.length === 0 && (
+              {(!stats?.recent_proposals?.length && !stats?.recent_tasks?.length) && (
                   <p className="text-sm text-slate-400 dark:text-slate-500">
                     No activity yet.
                   </p>
@@ -256,7 +259,7 @@ export default function Dashboard() {
           <TrendingUp size={52} className="text-green-400 mb-4 animate-pulse" />
 
           <div className="text-6xl font-extrabold tracking-tight">
-            {stats?.productivity_score}%
+            {stats?.productivity_score !== null ? `${stats.productivity_score}%` : "—"}
           </div>
 
           <p className="text-slate-400 text-sm mt-2">Task Completion Rate</p>

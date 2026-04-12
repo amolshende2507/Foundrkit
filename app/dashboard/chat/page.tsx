@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api"; // ✅ Step 1: Import helper
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -32,7 +33,7 @@ import {
 } from "@/components/ui/sheet";
 
 export default function AdvancedChat() {
-  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Added userId state
+  const [userId, setUserId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<any[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -46,19 +47,16 @@ export default function AdvancedChat() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // ✅ Step 2: Fetch user ONCE + sessions together
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const uid = user?.id ?? null;
-
       setUserId(uid);
 
       if (uid) {
         fetchSessions(uid);
       }
     };
-
     init();
   }, []);
 
@@ -70,42 +68,50 @@ export default function AdvancedChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ✅ Step 3: Updated fetchSessions to use cached ID
+  // ✅ Step 2: Optimized fetchSessions
   const fetchSessions = async (uid?: string) => {
     const id = uid || userId;
     if (!id) return;
 
-    const res = await fetch(`/chat/sessions/${id}`);
-    const data = await res.json();
-
-    setSessions(data);
-    if (!activeSessionId && data.length > 0) setActiveSessionId(data[0].id);
+    try {
+        const data = await apiFetch(`/chat/sessions/${id}`);
+        setSessions(Array.isArray(data) ? data : []);
+        if (!activeSessionId && data.length > 0) setActiveSessionId(data[0].id);
+    } catch (error) {
+        console.error("Failed to fetch sessions", error);
+    }
   };
 
+  // ✅ Step 3: Optimized fetchMessages
   const fetchMessages = async (sessionId: string) => {
-    const res = await fetch(`/chat/messages/${sessionId}`);
-    const data = await res.json();
-    setMessages(data);
+    try {
+        const data = await apiFetch(`/chat/messages/${sessionId}`);
+        setMessages(Array.isArray(data) ? data : []);
+    } catch (error) {
+        console.error("Failed to fetch messages", error);
+    }
   };
 
-  // ✅ Step 4: Fixed handleNewSession to use cached userId
+  // ✅ Step 4: Optimized handleNewSession
   const handleNewSession = async () => {
     if (!userId) return;
 
-    const res = await fetch(`/chat/sessions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, title: "New Strategy Chat" }),
-    });
+    try {
+        const newSession = await apiFetch(`/chat/sessions`, {
+            method: "POST",
+            body: JSON.stringify({ user_id: userId, title: "New Strategy Chat" }),
+        });
 
-    const newSession = await res.json();
-    setSessions([newSession, ...sessions]);
-    setActiveSessionId(newSession.id);
-    setMessages([]);
-    setIsMobileMenuOpen(false);
+        setSessions([newSession, ...sessions]);
+        setActiveSessionId(newSession.id);
+        setMessages([]);
+        setIsMobileMenuOpen(false);
+    } catch (error) {
+        alert("Failed to start new chat.");
+    }
   };
 
-  // ✅ Step 5: Fixed handleSend to use cached userId (prevents delay)
+  // ✅ Step 5: Optimized handleSend
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!input.trim() || !activeSessionId || !userId) return;
@@ -115,47 +121,56 @@ export default function AdvancedChat() {
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
     setLoading(true);
 
-    await fetch(`/chat/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: userId,
-        session_id: activeSessionId,
-        message: userMsg,
-      }),
-    });
-
-    await fetchMessages(activeSessionId);
-    setLoading(false);
+    try {
+        await apiFetch(`/chat/send`, {
+            method: "POST",
+            body: JSON.stringify({
+                user_id: userId,
+                session_id: activeSessionId,
+                message: userMsg,
+            }),
+        });
+        await fetchMessages(activeSessionId);
+    } catch (error) {
+        alert("AI failed to respond.");
+    } finally {
+        setLoading(false);
+    }
   };
 
+  // ✅ Step 6: Optimized Delete
   const handleDeleteSession = async (e: any, id: string) => {
     e.stopPropagation();
     if (!confirm("Delete this chat?")) return;
 
-    await fetch(`/chat/sessions/${id}`, {
-      method: "DELETE",
-    });
-
-    setSessions(sessions.filter((s) => s.id !== id));
-    if (activeSessionId === id) setActiveSessionId(null);
+    try {
+        await apiFetch(`/chat/sessions/${id}`, { method: "DELETE" });
+        setSessions(sessions.filter((s) => s.id !== id));
+        if (activeSessionId === id) setActiveSessionId(null);
+    } catch (error) {
+        alert("Delete failed.");
+    }
   };
 
+  // ✅ Step 7: Optimized Rename (Sends JSON body to match backend fix)
   const handleRenameSession = async () => {
     if (!sessionToEdit) return;
 
-    await fetch(
-      `/chat/sessions/${sessionToEdit}?title=${editTitle}`,
-      { method: "PUT" }
-    );
+    try {
+        await apiFetch(`/chat/sessions/${sessionToEdit}`, { 
+            method: "PUT",
+            body: JSON.stringify({ title: editTitle }) 
+        });
 
-    setSessions(
-      sessions.map((s) =>
-        s.id === sessionToEdit ? { ...s, title: editTitle } : s
-      )
-    );
-
-    setIsRenameOpen(false);
+        setSessions(
+            sessions.map((s) =>
+                s.id === sessionToEdit ? { ...s, title: editTitle } : s
+            )
+        );
+        setIsRenameOpen(false);
+    } catch (error) {
+        alert("Rename failed.");
+    }
   };
 
   const SessionList = () => (
@@ -213,18 +228,13 @@ export default function AdvancedChat() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] gap-6">
-
-      {/* Desktop Sidebar */}
       <div className="hidden md:block w-80">
         <Card className="h-full p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl dark:bg-slate-900/50">
           <SessionList />
         </Card>
       </div>
 
-      {/* Chat Area */}
       <Card className="flex-1 flex flex-col rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden dark:bg-slate-900/50">
-
-        {/* Mobile Header */}
         <div className="md:hidden flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70">
           <div className="flex items-center gap-2 font-medium text-slate-800 dark:text-slate-100 text-xs sm:text-sm">
             <Bot size={18} className="text-blue-600 dark:text-blue-400" />
@@ -237,22 +247,13 @@ export default function AdvancedChat() {
                 <History size={20} />
               </Button>
             </SheetTrigger>
-
-            <SheetContent
-              side="left"
-              className="w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800"
-            >
-              <SheetHeader>
-                <SheetTitle className="text-slate-700 dark:text-slate-200">
-                  History
-                </SheetTitle>
-              </SheetHeader>
+            <SheetContent side="left" className="w-80 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
+              <SheetHeader><SheetTitle className="text-slate-700 dark:text-slate-200">History</SheetTitle></SheetHeader>
               <SessionList />
             </SheetContent>
           </Sheet>
         </div>
 
-        {/* Chat Body */}
         {!activeSessionId ? (
           <div className="flex flex-col items-center justify-center flex-1 bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500">
             <Bot size={48} />
@@ -260,33 +261,21 @@ export default function AdvancedChat() {
           </div>
         ) : (
           <>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 
-              bg-white dark:bg-slate-950 transition-colors">
-
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 bg-white dark:bg-slate-950 transition-colors">
               {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex gap-3 ${
-                    msg.role === "user" ? "justify-end" : ""
-                  }`}
-                >
+                <div key={i} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
                   {msg.role === "ai" && (
                     <div className="w-9 h-9 flex items-center justify-center bg-blue-600 dark:bg-blue-500 text-white rounded-full shadow-md">
                       <Bot size={16} />
                     </div>
                   )}
-
-                  <div
-                    className={`px-4 py-2 rounded-2xl text-xs sm:text-sm max-w-[80%] shadow-md
-                      ${
+                  <div className={`px-4 py-2 rounded-2xl text-xs sm:text-sm max-w-[80%] shadow-md ${
                         msg.role === "user"
                           ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 rounded-br-none"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-none"
-                      }`}
-                  >
+                      }`}>
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
-
                   {msg.role === "user" && (
                     <div className="w-9 h-9 flex items-center justify-center bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-200 rounded-full shadow-md">
                       <User size={16} />
@@ -294,23 +283,17 @@ export default function AdvancedChat() {
                   )}
                 </div>
               ))}
-
               {loading && (
                 <div className="flex gap-3 animate-pulse">
                   <div className="w-9 h-9 rounded-full bg-blue-600 dark:bg-blue-400"></div>
                   <div className="w-24 h-10 bg-slate-200 dark:bg-slate-700 rounded-2xl"></div>
                 </div>
               )}
-
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Box */}
             <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-              <form
-                onSubmit={handleSend}
-                className="flex gap-3 max-w-4xl mx-auto"
-              >
+              <form onSubmit={handleSend} className="flex gap-3 max-w-4xl mx-auto">
                 <Input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -331,26 +314,16 @@ export default function AdvancedChat() {
         )}
       </Card>
 
-      {/* Rename Dialog */}
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
         <DialogContent className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-          <DialogHeader>
-            <DialogTitle className="text-slate-800 dark:text-slate-200">
-              Rename Chat
-            </DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle className="text-slate-800 dark:text-slate-200">Rename Chat</DialogTitle></DialogHeader>
           <div className="flex gap-2 pt-4">
             <Input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               className="bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
             />
-            <Button
-              onClick={handleRenameSession}
-              className="bg-slate-900 dark:bg-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200"
-            >
-              Save
-            </Button>
+            <Button onClick={handleRenameSession} className="bg-slate-900 dark:bg-white dark:text-black hover:bg-slate-800 dark:hover:bg-slate-200">Save</Button>
           </div>
         </DialogContent>
       </Dialog>

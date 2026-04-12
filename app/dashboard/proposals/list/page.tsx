@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api"; // ✅ Step 1: Import helper
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -18,28 +19,29 @@ interface Proposal {
 export default function ProposalList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Added userId state
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // ✅ Step 2: Extracted fetch function
+  // ✅ Step 2: Optimized fetchProposals using apiFetch
   const fetchProposals = async (uid?: string) => {
     const id = uid || userId;
     if (!id) return;
 
     setLoading(true);
-
-    const response = await fetch(`/proposals/${id}`);
-    const data = await response.json();
-
-    setProposals(data);
-    setLoading(false);
+    try {
+        const data = await apiFetch(`/proposals/${id}`);
+        setProposals(Array.isArray(data) ? data : []);
+    } catch (error) {
+        console.error("Failed to fetch proposals:", error);
+        setProposals([]);
+    } finally {
+        setLoading(false);
+    }
   };
 
-  // ✅ Step 3: Refactored useEffect (Clean init pattern)
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const uid = user?.id ?? null;
-
       setUserId(uid);
 
       if (uid) {
@@ -48,14 +50,22 @@ export default function ProposalList() {
         setLoading(false);
       }
     };
-
     init();
   }, []);
 
+  // ✅ Step 3: Optimized handleDelete using apiFetch
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this proposal?")) return;
-    await fetch(`/proposals/${id}`, { method: "DELETE" });
-    setProposals(proposals.filter((p) => p.id !== id));
+    
+    // Optimistic UI update
+    setProposals(prev => prev.filter((p) => p.id !== id));
+
+    try {
+        await apiFetch(`/proposals/${id}`, { method: "DELETE" });
+    } catch (error) {
+        alert("Delete failed. Refreshing list...");
+        fetchProposals();
+    }
   };
 
   return (

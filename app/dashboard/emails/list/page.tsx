@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/lib/api"; // ✅ Step 1: Import helper
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Mail, Trash2, Plus, Copy } from "lucide-react";
@@ -11,28 +12,30 @@ import Link from "next/link";
 export default function EmailList() {
   const [emails, setEmails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null); // ✅ Step 1: Add userId state
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // ✅ Step 2: Extract fetchEmails
+  // ✅ Step 2: Optimized fetchEmails using apiFetch
   const fetchEmails = async (uid?: string) => {
     const id = uid || userId;
     if (!id) return;
 
     setLoading(true);
-
-    const res = await fetch(`/emails/${id}`);
-    const data = await res.json();
-
-    setEmails(data);
-    setLoading(false);
+    try {
+        const data = await apiFetch(`/emails/${id}`);
+        // Ensure data is an array
+        setEmails(Array.isArray(data) ? data : []);
+    } catch (error) {
+        console.error("Failed to fetch emails:", error);
+        setEmails([]);
+    } finally {
+        setLoading(false);
+    }
   };
 
-  // ✅ Step 3: Refactored useEffect (Clean init pattern)
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const uid = user?.id ?? null;
-
       setUserId(uid);
 
       if (uid) {
@@ -41,14 +44,22 @@ export default function EmailList() {
         setLoading(false);
       }
     };
-
     init();
   }, []);
 
+  // ✅ Step 3: Optimized handleDelete
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this draft?")) return;
-    await fetch(`/emails/${id}`, { method: "DELETE" });
-    setEmails(emails.filter((e) => e.id !== id));
+    
+    // Optimistic UI update
+    setEmails(prev => prev.filter((e) => e.id !== id));
+
+    try {
+        await apiFetch(`/emails/${id}`, { method: "DELETE" });
+    } catch (error) {
+        alert("Failed to delete draft. Refreshing...");
+        fetchEmails();
+    }
   };
 
   const handleCopy = (subject: string, body: string) => {
