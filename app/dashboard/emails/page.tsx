@@ -1,4 +1,3 @@
-// app\dashboard\emails\page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,16 +19,32 @@ import {
   Mail,
   Copy,
   Check,
-  Save
+  Save,
+  ExternalLink
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+// ✅ TYPESCRIPT INTERFACES
+interface Client {
+  id: string;
+  name: string;
+}
+
+interface EmailResult {
+  subject: string;
+  body: string;
+}
+
 export default function EmailGenerator() {
+  const router = useRouter();
+
+  // Loading States
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [fetchingClients, setFetchingClients] = useState(true);
 
-  const [clients, setClients] = useState<any[]>([]);
-  const router = useRouter();
+  // Data
+  const [clients, setClients] = useState<Client[]>([]);
 
   // Form Inputs
   const [selectedClientName, setSelectedClientName] = useState("");
@@ -37,26 +52,38 @@ export default function EmailGenerator() {
   const [context, setContext] = useState("");
 
   // Output
-  const [result, setResult] = useState<{ subject: string; body: string } | null>(null);
+  const [result, setResult] = useState<EmailResult | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Fetch Clients
+  // ✅ FETCH CLIENTS (WITH CACHE BUSTING)
   useEffect(() => {
     async function fetchClients() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        setFetchingClients(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/clients/${user.id}`);
-      const data = await res.json();
-      setClients(data);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/clients/${user.id}?t=${Date.now()}`, 
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error("Failed to fetch clients");
+
+        const data: Client[] = await res.json();
+        setClients(data);
+      } catch (error) {
+        console.error("Error fetching clients:", error);
+      } finally {
+        setFetchingClients(false);
+      }
     }
     fetchClients();
   }, []);
 
-  // Generate Email
+  // ✅ GENERATE EMAIL
   const handleGenerate = async () => {
     if (!selectedClientName) {
-      alert("Please select a client.");
+      alert("Please select a recipient.");
       return;
     }
 
@@ -65,7 +92,7 @@ export default function EmailGenerator() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) throw new Error("Not authenticated");
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/generate-email`, {
         method: "POST",
@@ -74,67 +101,83 @@ export default function EmailGenerator() {
           user_id: user.id,
           client_name: selectedClientName,
           email_type: emailType,
-          context: context || "General context"
+          context: context.trim() || "General context"
         })
       });
 
-      const data = await response.json();
-      setResult(JSON.parse(data));
+      if (!response.ok) throw new Error("Failed to generate email");
 
-    } catch {
-      alert("Error generating email");
+      const data = await response.json();
+      
+      // Handle both stringified JSON and direct object responses safely
+      const parsedResult: EmailResult = typeof data === "string" ? JSON.parse(data) : data;
+      setResult(parsedResult);
+
+    } catch (error) {
+      console.error("Generation Error:", error);
+      alert("Error generating email. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Copy
-  const handleCopy = () => {
+  // ✅ ACTIONS
+  const handleCopy = async () => {
     if (!result) return;
-    const text = `Subject: ${result.subject}\n\n${result.body}`;
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      const text = `Subject: ${result.subject}\n\n${result.body}`;
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Copy failed:", error);
+    }
   };
 
-  // Open in mail app
   const handleOpenMail = () => {
     if (!result) return;
-    window.location.href = `mailto:?subject=${encodeURIComponent(result.subject)}&body=${encodeURIComponent(result.body)}`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(result.subject)}&body=${encodeURIComponent(result.body)}`;
+    window.location.href = mailtoUrl;
   };
 
-  // Save Email
   const handleSave = async () => {
     if (!result) return;
     setSaveLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emails/save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_id: user.id,
-        client_name: selectedClientName,
-        subject: result.subject,
-        body: result.body,
-        email_type: emailType
-      })
-    });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emails/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: user.id,
+          client_name: selectedClientName,
+          subject: result.subject,
+          body: result.body,
+          email_type: emailType
+        })
+      });
 
-    setSaveLoading(false);
-    router.push("/dashboard/emails/list");
+      if (!res.ok) throw new Error("Failed to save draft");
+
+      router.push("/dashboard/emails/list");
+    } catch (error) {
+      console.error("Save Error:", error);
+      alert("Failed to save draft. Please try again.");
+      setSaveLoading(false);
+    }
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-100px)] max-w-7xl mx-auto">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto lg:h-[calc(100vh-100px)] max-w-7xl mx-auto animate-in fade-in duration-500">
 
       {/* LEFT PANEL */}
       <div className="flex flex-col gap-6">
 
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             Email Assistant
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
@@ -143,7 +186,7 @@ export default function EmailGenerator() {
         </div>
 
         <Card className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
-          <CardHeader className="border-b border-slate-200 dark:border-slate-800">
+          <CardHeader className="border-b border-slate-200 dark:border-slate-800 pb-4">
             <CardTitle className="text-base font-semibold dark:text-slate-100">
               Email Configuration
             </CardTitle>
@@ -151,14 +194,14 @@ export default function EmailGenerator() {
 
           <CardContent className="space-y-6 pt-6">
 
-            {/* Client */}
+            {/* Client Selection */}
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Recipient
               </Label>
-              <Select onValueChange={setSelectedClientName}>
+              <Select onValueChange={setSelectedClientName} disabled={loading || fetchingClients}>
                 <SelectTrigger className="h-12 rounded-xl dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100">
-                  <SelectValue placeholder="Select a client" />
+                  <SelectValue placeholder={fetchingClients ? "Loading clients..." : "Select a client"} />
                 </SelectTrigger>
                 <SelectContent className="dark:bg-slate-900 dark:border-slate-800">
                   {clients.map((client) => (
@@ -166,17 +209,19 @@ export default function EmailGenerator() {
                       {client.name}
                     </SelectItem>
                   ))}
-                  <SelectItem value="Potential Client">Potential Client</SelectItem>
+                  <SelectItem value="Potential Client" className="font-medium text-blue-600 dark:text-blue-400">
+                    + New Potential Client
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Email Type */}
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Email Type
               </Label>
-              <Select value={emailType} onValueChange={setEmailType}>
+              <Select value={emailType} onValueChange={setEmailType} disabled={loading}>
                 <SelectTrigger className="h-12 rounded-xl dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100">
                   <SelectValue />
                 </SelectTrigger>
@@ -192,32 +237,33 @@ export default function EmailGenerator() {
 
             {/* Context */}
             <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                Context
+              <Label className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Context & Details
               </Label>
               <Textarea
-                placeholder="Add optional context..."
+                placeholder="e.g., We met at the conference yesterday. I want to offer a 20% discount on our Pro plan..."
                 value={context}
                 onChange={(e) => setContext(e.target.value)}
-                className="min-h-[120px] rounded-xl resize-none dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100"
+                disabled={loading}
+                className="min-h-[140px] rounded-xl resize-none dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 placeholder:text-slate-400 focus-visible:ring-blue-500"
               />
             </div>
 
             <Button
               onClick={handleGenerate}
-              disabled={loading}
-              className="w-full h-12 rounded-xl bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100"
+              disabled={loading || !selectedClientName}
+              className="w-full h-12 rounded-xl bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all active:scale-[0.98]"
             >
               {loading ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Generating…
-                </span>
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Drafting Email...
+                </>
               ) : (
-                <span className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  Generate Email
-                </span>
+                <>
+                  <Mail className="mr-2 h-5 w-5" />
+                  Generate AI Draft
+                </>
               )}
             </Button>
 
@@ -225,65 +271,80 @@ export default function EmailGenerator() {
         </Card>
       </div>
 
-      {/* RIGHT PANEL */}
-      <div className="flex flex-col gap-5">
+      {/* RIGHT PANEL (Live Preview) */}
+      <div className="flex flex-col gap-6">
 
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          Live Preview
-        </h2>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 lg:mt-0 mt-6">
+            Live Preview
+          </h2>
+        </div>
 
         <Card className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-          <CardContent className="p-8 h-full flex flex-col dark:text-slate-200">
+          <CardContent className="p-0 h-full flex flex-col dark:text-slate-200">
 
             {result ? (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col h-full animate-in fade-in zoom-in-95 duration-300">
 
-                {/* Subject */}
-                <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
-                  <p className="text-xs uppercase font-semibold tracking-wider text-slate-500 dark:text-slate-400">
-                    Subject
-                  </p>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-1">
-                    {result.subject}
-                  </h3>
-                </div>
+                <div className="p-6 md:p-8 flex-1 flex flex-col">
+                  {/* Subject */}
+                  <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-6">
+                    <p className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                      Subject
+                    </p>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mt-2 leading-snug">
+                      {result.subject}
+                    </h3>
+                  </div>
 
-                {/* Body */}
-                <div className="flex-1 whitespace-pre-wrap text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
-                  {result.body}
+                  {/* Body */}
+                  <div className="flex-1 whitespace-pre-wrap text-slate-700 dark:text-slate-300 text-sm leading-relaxed overflow-y-auto pr-2 custom-scrollbar">
+                    {result.body}
+                  </div>
                 </div>
 
                 {/* Footer Actions */}
-                <div className="pt-6 mt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
+                <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    
                     {/* Copy */}
-                    <Button variant="outline" className="rounded-xl h-11 dark:border-slate-700" onClick={handleCopy}>
+                    <Button 
+                      variant="outline" 
+                      className={`rounded-xl h-11 transition-colors ${
+                        copied 
+                        ? "border-green-500 text-green-600 bg-green-50 hover:bg-green-50 hover:text-green-600 dark:border-green-500/50 dark:text-green-400 dark:bg-green-950/30"
+                        : "dark:border-slate-700 dark:hover:bg-slate-800"
+                      }`} 
+                      onClick={handleCopy}
+                    >
                       {copied ? (
-                        <>
-                          <Check className="mr-2 h-4 w-4 text-green-600" /> Copied
-                        </>
+                        <><Check className="mr-2 h-4 w-4" /> Copied</>
                       ) : (
-                        <>
-                          <Copy className="mr-2 h-4 w-4" /> Copy
-                        </>
+                        <><Copy className="mr-2 h-4 w-4" /> Copy</>
                       )}
                     </Button>
 
-                    {/* Open Mail */}
-                    <Button className="rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white" onClick={handleOpenMail}>
-                      Open in Mail
+                    {/* Open Mail App */}
+                    <Button 
+                      className="rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white" 
+                      onClick={handleOpenMail}
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open Mail
                     </Button>
 
-                    {/* Save */}
+                    {/* Save Draft */}
                     <Button
                       variant="outline"
-                      className="rounded-xl h-11 dark:border-slate-700"
+                      className="rounded-xl h-11 border-slate-900 text-slate-900 hover:bg-slate-100 dark:border-slate-300 dark:text-slate-200 dark:hover:bg-slate-800"
                       onClick={handleSave}
                       disabled={saveLoading}
                     >
-                      <Save className="mr-2 h-4 w-4" />
-                      {saveLoading ? "Saving…" : "Save Draft"}
+                      {saveLoading ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                      ) : (
+                        <><Save className="mr-2 h-4 w-4" /> Save Draft</>
+                      )}
                     </Button>
 
                   </div>
@@ -291,9 +352,14 @@ export default function EmailGenerator() {
               </div>
             ) : (
               // Empty State
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 text-center gap-3">
-                <Mail size={48} className="opacity-20" />
-                <p className="text-sm">Configure details and generate your first email.</p>
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 text-center p-8 bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="h-16 w-16 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-4 shadow-sm border border-slate-100 dark:border-slate-800">
+                  <Mail className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                </div>
+                <h3 className="font-medium text-slate-700 dark:text-slate-300">No draft generated</h3>
+                <p className="text-sm mt-1 max-w-[250px]">
+                  Configure your details on the left and generate your first email.
+                </p>
               </div>
             )}
 
