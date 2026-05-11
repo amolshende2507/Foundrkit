@@ -500,80 +500,80 @@ def generate_branding(request: BrandingRequest):
 
 # --- NEW ENDPOINT: IMAGE GENERATION (Replacing Pollinations URL logic) ---
 
-class LogoGenerationRequest(BaseModel):
-    prompt: str
-# Replace the existing generate_image_logo function with this:
-@app.post("/branding/generate-image")
-def generate_image_logo(request: LogoGenerationRequest):
-    print(f"DEBUG: Logo prompt received: {request.prompt}")
+# class LogoGenerationRequest(BaseModel):
+#     prompt: str
+# # Replace the existing generate_image_logo function with this:
+# @app.post("/branding/generate-image")
+# def generate_image_logo(request: LogoGenerationRequest):
+#     print(f"DEBUG: Logo prompt received: {request.prompt}")
 
-    hf_token = os.environ.get("HF_API_KEY")
-    if not hf_token:
-        raise HTTPException(status_code=500, detail="HF_API_KEY missing")
+#     hf_token = os.environ.get("HF_API_KEY")
+#     if not hf_token:
+#         raise HTTPException(status_code=500, detail="HF_API_KEY missing")
 
-    API_URL = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
+#     API_URL = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
 
-    headers = {
-        "Authorization": f"Bearer {hf_token}",
-        "Content-Type": "application/json",
-        "x-use-cache": "false",
-        "x-wait-for-model": "true"
-    }
+#     headers = {
+#         "Authorization": f"Bearer {hf_token}",
+#         "Content-Type": "application/json",
+#         "x-use-cache": "false",
+#         "x-wait-for-model": "true"
+#     }
 
-    # 🎯 PROFESSIONAL LOGO PROMPT
-    positive_prompt = f"""
-    Minimal vector logo of {request.prompt},
-    single centered symbol,
-    flat geometric design,
-    clean sharp edges,
-    white background,
-    no text,
-    no gradients,
-    no shadows,
-    professional startup branding,
-    high contrast,
-    scalable SVG style
-    """
+#     # 🎯 PROFESSIONAL LOGO PROMPT
+#     positive_prompt = f"""
+#     Minimal vector logo of {request.prompt},
+#     single centered symbol,
+#     flat geometric design,
+#     clean sharp edges,
+#     white background,
+#     no text,
+#     no gradients,
+#     no shadows,
+#     professional startup branding,
+#     high contrast,
+#     scalable SVG style
+#     """
 
-    negative_prompt = """
-    photorealistic,
-    illustration,
-    3d render,
-    mockup,
-    background scene,
-    text,
-    letters,
-    watermark,
-    signature,
-    blurry,
-    low quality
-    """
+#     negative_prompt = """
+#     photorealistic,
+#     illustration,
+#     3d render,
+#     mockup,
+#     background scene,
+#     text,
+#     letters,
+#     watermark,
+#     signature,
+#     blurry,
+#     low quality
+#     """
 
-    payload = {
-        "inputs": positive_prompt,
-        "parameters": {
-            "negative_prompt": negative_prompt,
-            "num_inference_steps": 35,
-            "guidance_scale": 8,
-            "width": 1024,
-            "height": 1024
-        }
-    }
+#     payload = {
+#         "inputs": positive_prompt,
+#         "parameters": {
+#             "negative_prompt": negative_prompt,
+#             "num_inference_steps": 35,
+#             "guidance_scale": 8,
+#             "width": 1024,
+#             "height": 1024
+#         }
+#     }
 
-    response = requests.post(API_URL, headers=headers, json=payload)
+#     response = requests.post(API_URL, headers=headers, json=payload)
 
-    if response.status_code != 200:
-        print("HF ERROR:", response.text)
-        raise HTTPException(
-            status_code=500,
-            detail=f"HuggingFace Error: {response.text}"
-        )
+#     if response.status_code != 200:
+#         print("HF ERROR:", response.text)
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"HuggingFace Error: {response.text}"
+#         )
 
-    base64_image = base64.b64encode(response.content).decode("utf-8")
-    return {
-        "image_url": f"data:image/png;base64,{base64_image}",
-        "type": "logo"
-    }
+#     base64_image = base64.b64encode(response.content).decode("utf-8")
+#     return {
+#         "image_url": f"data:image/png;base64,{base64_image}",
+#         "type": "logo"
+#     }
 
 class SaveAssetRequest(BaseModel):
     user_id: str
