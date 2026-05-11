@@ -83,7 +83,7 @@ def generate_proposal(request: ProposalRequest):
     """
 
     # Step C: Ask Gemini
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     ai_response = model.generate_content(prompt)
 
     return {"proposal_text": ai_response.text}
@@ -118,7 +118,7 @@ def chat_with_cofounder(request: ChatRequest):
     """
 
     # Step C: Generate Answer
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     ai_response = model.generate_content(prompt)
 
     return {"reply": ai_response.text}
@@ -238,7 +238,7 @@ def generate_email(request: EmailRequest):
       "body": "Hi [Name],\n\nThe email body here..."
     }}
     """
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     ai_response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
     return ai_response.text
 
@@ -307,7 +307,7 @@ def generate_tasks_ai(request: AITaskGenRequest):
     Break this down into 3-5 specific, actionable tasks.
     Return ONLY a JSON list of strings. Example: ["Buy Domain", "Design Logo", "Write Content"]
     """
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     result = model.generate_content(prompt)
     
     import json
@@ -404,7 +404,7 @@ def send_message(request: ChatMessageRequest):
     Be short, strategic, and proactive.
     """
 
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     ai_response = model.generate_content(prompt)
     ai_text = ai_response.text
 
@@ -490,7 +490,7 @@ def generate_branding(request: BrandingRequest):
         Keep it under 50 words.
         """
 
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
     text = response.text
     clean_text = text.replace("```json", "").replace("```xml", "").replace("```svg", "").replace("```", "").strip()
@@ -806,7 +806,7 @@ Request:
     # 2. RUN GEMINI MODEL
     # ------------------------------------------------------------------
 
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     response = model.generate_content(prompt)
 
     # ------------------------------------------------------------------
@@ -854,7 +854,7 @@ Requirements:
 
 Return ONLY the final prompt string.
 """
-        model = genai.GenerativeModel("gemini-3-flash-preview")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         bridge_response = model.generate_content(bridge_prompt)
         enhanced_prompt = bridge_response.text.strip()
 
