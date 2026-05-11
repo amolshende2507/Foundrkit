@@ -925,3 +925,7 @@ low quality, blurry
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ping")
+def ping():
+    return {"status": "alive"}
