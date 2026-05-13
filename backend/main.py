@@ -3,90 +3,173 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
 import os
-import requests
-import base64
-import json
-import re
+import requests  # <--- NEW IMPORT for Image API
+import base64    # <--- NEW IMPORT for Image Encoding
 from dotenv import load_dotenv
+
 from typing import Optional
 from uuid import UUID
 
-load_dotenv()
 
-# Supabase
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+def ask_gemini(prompt, json_mode=False):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
+    }
+
+    # Optional JSON mode
+    if json_mode:
+        payload["generationConfig"] = {
+            "responseMimeType": "application/json"
+        }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        print("GEMINI ERROR:", response.text)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Gemini API Error: {response.text}"
+        )
+
+    data = response.json()
+
+    try:
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception:
+        print(data)
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid Gemini response"
+        )
+# Configure Supabase & AI
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 
 app = FastAPI()
 
+# --- CORS Configuration ---
+# Get allowed origins from environment or use defaults
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,https://foundrkit.vercel.app").split(",")
+allowed_origins = [origin.strip() for origin in allowed_origins]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://foundrkit.vercel.app",
-        "http://localhost:3000",
-        "http://localhost:3001",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
-
-# ──────────────────────────────────────────────
-# GEMINI via REST  (no SDK — bypasses geo-block)
-# ──────────────────────────────────────────────
-def call_gemini(prompt: str, json_mode: bool = False) -> str:
-    if not GEMINI_API_KEY:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY not set")
-
-    endpoint = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
-    )
-
-    payload: dict = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-    if json_mode:
-        payload["generationConfig"] = {"response_mime_type": "application/json"}
-
-    resp = requests.post(endpoint, json=payload, timeout=60)
-
-    if resp.status_code != 200:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Gemini error {resp.status_code}: {resp.text[:300]}"
-        )
-
-    data = resp.json()
-    try:
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError):
-        raise HTTPException(status_code=500, detail=f"Unexpected Gemini response: {data}")
-
-
-# ──────────────────────────────────────────────
-# HEALTH CHECK
-# ──────────────────────────────────────────────
-@app.get("/ping")
-def ping():
-    return {"status": "alive"}
-
-
-# ──────────────────────────────────────────────
-# MODELS
-# ──────────────────────────────────────────────
+# 1. Define what data the frontend sends us
 class ProposalRequest(BaseModel):
     user_id: str
     client_name: str
     project_details: str
 
+@app.post("/generate-proposal")
+def generate_proposal(request: ProposalRequest):
+    # Step A: Fetch User's Brand DNA from Supabase
+    response = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
+    
+    # Check if they have settings, otherwise use defaults
+    if response.data:
+        brand = response.data[0]
+        company_name = brand.get("company_name", "My Company")
+        description = brand.get("company_description", "We provide professional services.")
+        tone = brand.get("tone_of_voice", "Professional")
+    else:
+        # Fallback if they skipped onboarding
+        company_name = "Freelancer"
+        description = "General services"
+        tone = "Professional"
+
+    # Step B: Construct the "God Prompt"
+    prompt = f"""
+    You are the founder of {company_name}. 
+    Your company does: {description}.
+    
+    Write a professional business proposal for a client named "{request.client_name}".
+    The project is: "{request.project_details}".
+    
+    Writing Style: {tone}.
+    
+    IMPORTANT FORMATTING RULES:
+    1. Do NOT use Markdown tables (no pipes |). They break the PDF renderer.
+    2. For the 'Pricing Estimate', use a clear Bulleted List format. 
+       Example: 
+       - Web Design: $1,000
+       - SEO Setup: $500
+       - Total: $1,500
+    3. Use ## for Section Headings.
+    4. Do not use bolding (**) symbols inside the paragraphs, it looks messy.
+    
+    Structure:
+    # Proposal for {request.client_name}
+    ## Executive Summary
+    ## Our Approach
+    ## Timeline & Deliverables
+    ## Pricing Estimate
+    """
+
+    # Step C: Ask Gemini
+
+    
+    ai_text = ask_gemini(prompt)
+
+    return {"proposal_text": ai_text}
+
+
 class ChatRequest(BaseModel):
     user_id: str
     message: str
+
+@app.post("/chat")
+def chat_with_cofounder(request: ChatRequest):
+    # Step A: Fetch Context
+    response = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
+    
+    if response.data:
+        brand = response.data[0]
+        company = brand.get('company_name')
+        desc = brand.get('company_description')
+        tone = brand.get('tone_of_voice')
+        context = f"You are the Virtual Co-Founder of '{company}'. Your company does: '{desc}'. Tone: {tone}."
+    else:
+        context = "You are a helpful business consultant for a freelancer."
+
+    # Step B: Construct the Prompt
+    prompt = f"""
+    {context}
+    
+    The user (your co-founder) asks: "{request.message}"
+    
+    Give a short, strategic, and actionable answer. 
+    Do not be generic. Use the company context to give specific advice.
+    """
+
+    # Step C: Generate Answer
+    ai_text = ask_gemini(prompt)
+
+    return {"reply": ai_text}
 
 class ProposalSaveRequest(BaseModel):
     user_id: str
@@ -94,112 +177,6 @@ class ProposalSaveRequest(BaseModel):
     project_details: str
     content: str
     status: str = "Draft"
-
-class ClientRequest(BaseModel):
-    user_id: str
-    name: str
-    email: str
-    industry: str
-    notes: str
-
-class EmailRequest(BaseModel):
-    user_id: str
-    client_name: str
-    email_type: str
-    context: str
-
-class EmailSaveRequest(BaseModel):
-    user_id: str
-    client_name: str
-    subject: str
-    body: str
-    email_type: str
-
-class TaskRequest(BaseModel):
-    user_id: str
-    title: str
-    status: str = "todo"
-    due_date: Optional[str] = None
-    priority: str = "medium"
-
-class AITaskGenRequest(BaseModel):
-    user_id: str
-    goal: str
-
-class ChatSessionRequest(BaseModel):
-    user_id: str
-    title: str = "New Chat"
-
-class ChatMessageRequest(BaseModel):
-    user_id: str
-    session_id: str
-    message: str
-
-class BrandingRequest(BaseModel):
-    user_id: str
-    asset_type: str
-    keywords: str
-    style: str
-
-class LogoGenerationRequest(BaseModel):
-    prompt: str
-
-class SaveAssetRequest(BaseModel):
-    user_id: str
-    asset_type: str
-    content: str
-
-class ToolRequest(BaseModel):
-    user_id: str
-    tool_id: str
-    inputs: dict
-
-class UpdateProposalRequest(BaseModel):
-    content: str
-
-
-# ──────────────────────────────────────────────
-# PROPOSALS
-# ──────────────────────────────────────────────
-@app.post("/generate-proposal")
-def generate_proposal(request: ProposalRequest):
-    response = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
-
-    if response.data:
-        brand = response.data[0]
-        company_name = brand.get("company_name", "My Company")
-        description = brand.get("company_description", "We provide professional services.")
-        tone = brand.get("tone_of_voice", "Professional")
-    else:
-        company_name = "Freelancer"
-        description = "General services"
-        tone = "Professional"
-
-    prompt = f"""
-You are the founder of {company_name}.
-Your company does: {description}.
-
-Write a professional business proposal for a client named "{request.client_name}".
-The project is: "{request.project_details}".
-Writing Style: {tone}.
-
-FORMATTING RULES:
-1. No Markdown tables (no pipes |).
-2. For Pricing Estimate use a Bulleted List:
-   - Item: $X
-   - Total: $Y
-3. Use ## for Section Headings.
-4. No bolding (**) inside paragraphs.
-
-Structure:
-# Proposal for {request.client_name}
-## Executive Summary
-## Our Approach
-## Timeline & Deliverables
-## Pricing Estimate
-"""
-    return {"proposal_text": call_gemini(prompt)}
-
 
 @app.post("/proposals/save")
 def save_proposal(request: ProposalSaveRequest):
@@ -215,31 +192,26 @@ def save_proposal(request: ProposalSaveRequest):
 
 @app.get("/proposals/{user_id}")
 def get_proposals(user_id: str):
-    return supabase.table("proposals").select("*").eq("user_id", user_id).order("created_at", desc=True).execute().data
+    response = supabase.table("proposals").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return response.data
 
 @app.get("/proposals/detail/{proposal_id}")
 def get_proposal_detail(proposal_id: str):
     try:
-        UUID(proposal_id, version=4)
+        val = UUID(proposal_id, version=4)
     except ValueError:
         return {}
     response = supabase.table("proposals").select("*").eq("id", proposal_id).execute()
     return response.data[0] if response.data else {}
 
-@app.put("/proposals/{proposal_id}")
-def update_proposal(proposal_id: str, request: UpdateProposalRequest):
-    response = supabase.table("proposals").update({"content": request.content}).eq("id", proposal_id).execute()
-    return {"status": "updated", "data": response.data}
 
-@app.delete("/proposals/{proposal_id}")
-def delete_proposal(proposal_id: str):
-    response = supabase.table("proposals").delete().eq("id", proposal_id).execute()
-    return {"status": "deleted", "data": response.data}
+class ClientRequest(BaseModel):
+    user_id: str
+    name: str
+    email: str
+    industry: str
+    notes: str
 
-
-# ──────────────────────────────────────────────
-# CLIENTS
-# ──────────────────────────────────────────────
 @app.post("/clients/add")
 def add_client(request: ClientRequest):
     data = {
@@ -254,45 +226,76 @@ def add_client(request: ClientRequest):
 
 @app.get("/clients/{user_id}")
 def get_clients(user_id: str):
-    return supabase.table("clients").select("*").eq("user_id", user_id).order("created_at", desc=True).execute().data
+    response = supabase.table("clients").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return response.data
 
 @app.delete("/clients/{client_id}")
 def delete_client(client_id: str):
     response = supabase.table("clients").delete().eq("id", client_id).execute()
     return {"status": "deleted", "data": response.data}
 
+@app.delete("/proposals/{proposal_id}")
+def delete_proposal(proposal_id: str):
+    response = supabase.table("proposals").delete().eq("id", proposal_id).execute()
+    return {"status": "deleted", "data": response.data}
 
-# ──────────────────────────────────────────────
-# EMAILS
-# ──────────────────────────────────────────────
+class UpdateProposalRequest(BaseModel):
+    content: str
+
+@app.put("/proposals/{proposal_id}")
+def update_proposal(proposal_id: str, request: UpdateProposalRequest):
+    response = supabase.table("proposals").update({"content": request.content}).eq("id", proposal_id).execute()
+    return {"status": "updated", "data": response.data}
+
+class EmailRequest(BaseModel):
+    user_id: str
+    client_name: str
+    email_type: str
+    context: str
+
 @app.post("/generate-email")
 def generate_email(request: EmailRequest):
     response = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
-
+    
     if response.data:
         brand = response.data[0]
-        sender_company = brand.get("company_name", "My Company")
-        tone = brand.get("tone_of_voice", "Professional")
-        description = brand.get("company_description", "Services")
+        sender_company = brand.get("company_name")
+        tone = brand.get("tone_of_voice")
+        description = brand.get("company_description")
     else:
         sender_company = "My Company"
         tone = "Professional"
         description = "Services"
 
     prompt = f"""
-You are {sender_company}. You describe yourself as: "{description}".
-Write a {request.email_type} email to "{request.client_name}".
-Context/Goal: {request.context}
-Tone: {tone}
+    You are {sender_company}. You describe yourself as: "{description}".
+    
+    Write a {request.email_type} email to a client named "{request.client_name}".
+    
+    Context/Goal: {request.context}
+    Tone: {tone}
+    
+    IMPORTANT:
+    1. Return JSON format with 'subject' and 'body'.
+    2. Do NOT use Markdown (no **bold** or ## headers). Keep it plain text ready for Gmail.
+    3. Keep it concise and human-sounding.
+    
+    Output format:
+    {{
+      "subject": "The subject line here",
+      "body": "Hi [Name],\n\nThe email body here..."
+    }}
+    """
+    ai_text = ask_gemini(prompt, json_mode=True)
 
-Return JSON with 'subject' and 'body'. No Markdown. Plain text only.
-{{
-  "subject": "...",
-  "body": "Hi [Name],\n\n..."
-}}
-"""
-    return call_gemini(prompt, json_mode=True)
+    return ai_text
 
+class EmailSaveRequest(BaseModel):
+    user_id: str
+    client_name: str
+    subject: str
+    body: str
+    email_type: str
 
 @app.post("/emails/save")
 def save_email(request: EmailSaveRequest):
@@ -309,24 +312,33 @@ def save_email(request: EmailSaveRequest):
 
 @app.get("/emails/{user_id}")
 def get_emails(user_id: str):
-    return supabase.table("emails").select("*").eq("user_id", user_id).order("created_at", desc=True).execute().data
+    response = supabase.table("emails").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return response.data
 
 @app.delete("/emails/{email_id}")
 def delete_email(email_id: str):
     response = supabase.table("emails").delete().eq("id", email_id).execute()
     return {"status": "deleted"}
 
+class TaskRequest(BaseModel):
+    user_id: str
+    title: str
+    status: str = "todo"
+    due_date: Optional[str] = None
+    priority: str = "medium"
 
-# ──────────────────────────────────────────────
-# TASKS
-# ──────────────────────────────────────────────
+class AITaskGenRequest(BaseModel):
+    user_id: str
+    goal: str
+
 @app.get("/tasks/{user_id}")
 def get_tasks(user_id: str):
     return supabase.table("tasks").select("*").eq("user_id", user_id).order("created_at", desc=True).execute().data
 
 @app.post("/tasks/add")
 def add_task(request: TaskRequest):
-    return supabase.table("tasks").insert(request.dict()).execute()
+    data = request.dict()
+    return supabase.table("tasks").insert(data).execute()
 
 @app.put("/tasks/{task_id}")
 def update_task_status(task_id: str, status: str):
@@ -339,37 +351,34 @@ def delete_task(task_id: str):
 @app.post("/tasks/generate")
 def generate_tasks_ai(request: AITaskGenRequest):
     prompt = f"""
-You are an expert project manager. The user wants to: "{request.goal}".
-Break this into 3-5 specific actionable tasks.
-Return ONLY a JSON list of strings. Example: ["Task 1", "Task 2", "Task 3"]
-"""
-    text = call_gemini(prompt)
+    You are an expert project manager. The user wants to: "{request.goal}".
+    Break this down into 3-5 specific, actionable tasks.
+    Return ONLY a JSON list of strings. Example: ["Buy Domain", "Design Logo", "Write Content"]
+    """
+    result = ask_gemini(prompt)
+    
+    import json
+    import re
     try:
-        json_str = re.search(r'\[.*\]', text, re.DOTALL).group(0)
-        return {"tasks": json.loads(json_str)}
-    except Exception:
+        json_str = re.search(r'\[.*\]', result, re.DOTALL).group(0)
+        tasks = json.loads(json_str)
+        return {"tasks": tasks}
+    except:
         return {"tasks": ["Define project scope", "Research competitors", "Set timeline"]}
 
+class ChatSessionRequest(BaseModel):
+    user_id: str
+    title: str = "New Chat"
 
-# ──────────────────────────────────────────────
-# CHAT
-# ──────────────────────────────────────────────
-@app.post("/chat")
-def chat_with_cofounder(request: ChatRequest):
-    response = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
-    if response.data:
-        b = response.data[0]
-        context = f"You are the Virtual Co-Founder of '{b.get('company_name')}'. Company: '{b.get('company_description')}'. Tone: {b.get('tone_of_voice')}."
-    else:
-        context = "You are a helpful business consultant."
-
-    prompt = f"{context}\n\nUser asks: \"{request.message}\"\nGive a short, strategic, actionable answer."
-    return {"reply": call_gemini(prompt)}
-
+class ChatMessageRequest(BaseModel):
+    user_id: str
+    session_id: str
+    message: str
 
 @app.post("/chat/sessions")
 def create_session(request: ChatSessionRequest):
-    response = supabase.table("chat_sessions").insert({"user_id": request.user_id, "title": request.title}).execute()
+    data = {"user_id": request.user_id, "title": request.title}
+    response = supabase.table("chat_sessions").insert(data).execute()
     return response.data[0]
 
 @app.get("/chat/sessions/{user_id}")
@@ -391,122 +400,238 @@ def delete_session(session_id: str):
 @app.post("/chat/send")
 def send_message(request: ChatMessageRequest):
     supabase.table("chat_messages").insert({
-        "session_id": request.session_id, "role": "user", "content": request.message
+        "session_id": request.session_id,
+        "role": "user",
+        "content": request.message
     }).execute()
 
     brand_res = supabase.table("brand_settings").select("*").eq("user_id", request.user_id).execute()
     if brand_res.data:
         b = brand_res.data[0]
-        brand_context = f"You are Co-Founder of '{b.get('company_name')}'. Description: '{b.get('company_description')}'. Tone: {b.get('tone_of_voice')}."
+        brand_context = f"You are the Co-Founder of '{b.get('company_name')}'. Description: '{b.get('company_description')}'. Tone: {b.get('tone_of_voice')}."
     else:
         brand_context = "You are a helpful business co-founder."
 
-    tasks_res = supabase.table("tasks").select("title, status").eq("user_id", request.user_id).neq("status", "done").limit(10).execute()
-    task_context = "OPEN TASKS:\n" + "\n".join([f"- {t['title']} ({t['status']})" for t in tasks_res.data]) if tasks_res.data else "NO OPEN TASKS."
+    tasks_res = supabase.table("tasks").select("title, status, due_date").eq("user_id", request.user_id).neq("status", "done").limit(10).execute()
+    task_list = "\n".join([f"- {t['title']} ({t['status']})" for t in tasks_res.data])
+    task_context = f"CURRENT OPEN TASKS:\n{task_list}" if tasks_res.data else "NO OPEN TASKS."
 
-    prop_res = supabase.table("proposals").select("client_name, status").eq("user_id", request.user_id).order("created_at", desc=True).limit(5).execute()
-    prop_context = "RECENT PROPOSALS:\n" + "\n".join([f"- {p['client_name']} ({p['status']})" for p in prop_res.data]) if prop_res.data else "NO PROPOSALS."
+    prop_res = supabase.table("proposals").select("client_name, status, created_at").eq("user_id", request.user_id).order("created_at", desc=True).limit(5).execute()
+    prop_list = "\n".join([f"- To {p['client_name']} (Status: {p['status']})" for p in prop_res.data])
+    prop_context = f"RECENT PROPOSALS:\n{prop_list}" if prop_res.data else "NO RECENT PROPOSALS."
 
-    client_res = supabase.table("clients").select("name, industry").eq("user_id", request.user_id).limit(5).execute()
-    client_context = "KEY CLIENTS:\n" + "\n".join([f"- {c['name']} ({c['industry']})" for c in client_res.data]) if client_res.data else "NO CLIENTS."
+    client_res = supabase.table("clients").select("name, industry, notes").eq("user_id", request.user_id).order("created_at", desc=True).limit(5).execute()
+    client_list = "\n".join([f"- {c['name']} ({c['industry']}): {c['notes']}" for c in client_res.data])
+    client_context = f"KEY CLIENTS:\n{client_list}" if client_res.data else "NO CLIENTS YET."
 
     history_res = supabase.table("chat_messages").select("*").eq("session_id", request.session_id).order("created_at", desc=True).limit(10).execute()
-    history_text = "".join(f"{m['role'].upper()}: {m['content']}\n" for m in reversed(history_res.data))
+    history_msgs = history_res.data[::-1]
+    history_text = ""
+    for msg in history_msgs:
+        history_text += f"{msg['role'].upper()}: {msg['content']}\n"
 
     prompt = f"""
-{brand_context}
+    SYSTEM IDENTITY:
+    {brand_context}
 
-{task_context}
-{prop_context}
-{client_context}
+    YOUR CURRENT BUSINESS STATE:
+    {task_context}
+    
+    {prop_context}
+    
+    {client_context}
 
-CHAT HISTORY:
-{history_text}
+    CHAT HISTORY:
+    {history_text}
 
-Reply short, strategic, proactive.
-"""
-    ai_text = call_gemini(prompt)
-    supabase.table("chat_messages").insert({"session_id": request.session_id, "role": "ai", "content": ai_text}).execute()
+    INSTRUCTION:
+    Reply to the user. You have full visibility of their business (tasks, proposals, clients).
+    If they ask about their workload, check the TASKS section.
+    If they ask about money/clients, check PROPOSALS and CLIENTS.
+    Be short, strategic, and proactive.
+    """
+
+    ai_text = ask_gemini(prompt)
+    
+
+    supabase.table("chat_messages").insert({
+        "session_id": request.session_id,
+        "role": "ai",
+        "content": ai_text
+    }).execute()
+
     return {"reply": ai_text}
 
-
-# ──────────────────────────────────────────────
-# DASHBOARD
-# ──────────────────────────────────────────────
 @app.get("/dashboard/stats/{user_id}")
 def get_dashboard_stats(user_id: str):
     prop_res = supabase.table("proposals").select("id", count="exact").eq("user_id", user_id).execute()
+    proposal_count = prop_res.count
+
     client_res = supabase.table("clients").select("id", count="exact").eq("user_id", user_id).execute()
+    client_count = client_res.count
+
     task_total_res = supabase.table("tasks").select("id", count="exact").eq("user_id", user_id).execute()
     task_done_res = supabase.table("tasks").select("id", count="exact").eq("user_id", user_id).eq("status", "done").execute()
+    
+    total_tasks = task_total_res.count or 1
+    completed_tasks = task_done_res.count
+    productivity_score = int((completed_tasks / total_tasks) * 100)
 
-    total = task_total_res.count or 1
-    done = task_done_res.count
     recent_props = supabase.table("proposals").select("client_name, created_at").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
     recent_tasks = supabase.table("tasks").select("title, created_at").eq("user_id", user_id).eq("status", "done").order("created_at", desc=True).limit(3).execute()
 
     return {
-        "proposal_count": prop_res.count,
-        "client_count": client_res.count,
-        "productivity_score": int((done / total) * 100),
-        "active_tasks": task_total_res.count - done,
+        "proposal_count": proposal_count,
+        "client_count": client_count,
+        "productivity_score": productivity_score,
+        "active_tasks": task_total_res.count - completed_tasks,
         "recent_proposals": recent_props.data,
         "recent_tasks": recent_tasks.data
     }
 
 
-# ──────────────────────────────────────────────
-# BRANDING
-# ──────────────────────────────────────────────
+# --- BRANDING SUITE ENDPOINTS ---
+
+class BrandingRequest(BaseModel):
+    user_id: str
+    asset_type: str
+    keywords: str
+    style: str
+
 @app.post("/branding/generate")
 def generate_branding(request: BrandingRequest):
     if request.asset_type == "logo":
-        prompt = f'Write a Stable Diffusion prompt for a professional logo for: "{request.keywords}". Style: {request.style}. Include: vector style, white background, minimalist, professional branding. Under 25 words. Return ONLY the prompt string.'
+        # Generate Text Prompt for Logo
+        prompt = f"""
+        You are an expert AI Art Prompter.
+        Write a detailed text prompt to generate a High-Quality Logo for: "{request.keywords}".
+        Style: {request.style}.
+        
+        Rules:
+        1. Return ONLY the raw prompt string. No JSON, no markdown.
+        2. Include keywords like: "vector style", "white background", "minimalist", "high resolution", "professional branding".
+        3. Keep it under 25 words.
+        """
     elif request.asset_type == "name":
-        prompt = f'Generate 5 business names for: "{request.keywords}". Style: {request.style}. Return ONLY a JSON list: [{{"name": "...", "meaning": "..."}}]'
+        # UPDATED PROMPT: Ask for name AND meaning
+        prompt = f"""
+        Generate 5 creative, available business names for: "{request.keywords}".
+        Style: {request.style}.
+        
+        For each name, provide a short 1-sentence explanation of the meaning.
+        
+        Return ONLY a JSON list of objects with keys "name" and "meaning".
+        Example: [{{"name": "Zenith", "meaning": "Represents the peak of success."}}]
+        """
     elif request.asset_type == "slogan":
-        prompt = f'Generate 5 slogans for: "{request.keywords}". Style: {request.style}. Return ONLY a JSON list of strings.'
+        prompt = f"""
+        Generate 5 catchy taglines/slogans for: "{request.keywords}".
+        Style: {request.style}.
+        Return ONLY a JSON list of strings.
+        """
     else:
-        prompt = f'Write a professional About Us / Mission Statement for: "{request.keywords}". Style: {request.style}. Under 50 words.'
+        prompt = f"""
+        Write a professional 'About Us' or 'Mission Statement' for: "{request.keywords}".
+        Style: {request.style}.
+        Keep it under 50 words.
+        """
 
-    text = call_gemini(prompt)
-    return {"result": text.replace("```json","").replace("```","").strip(), "type": request.asset_type}
+    text = ask_gemini(prompt)
+    clean_text = text.replace("```json", "").replace("```xml", "").replace("```svg", "").replace("```", "").strip()
+
+    return {"result": clean_text, "type": request.asset_type}
 
 
-@app.post("/branding/generate-image")
-def generate_image_logo(request: LogoGenerationRequest):
-    hf_token = os.environ.get("HF_API_KEY")
-    if not hf_token:
-        raise HTTPException(status_code=500, detail="HF_API_KEY missing")
+# --- NEW ENDPOINT: IMAGE GENERATION (Replacing Pollinations URL logic) ---
 
-    try:
-        enhanced_prompt = call_gemini(
-            f'Write a Stable Diffusion XL prompt for a minimalist startup logo for: "{request.prompt}". '
-            'Flat vector, white background, no text, geometric, professional. Return ONLY the prompt string.'
-        )
-    except Exception:
-        enhanced_prompt = f"Minimal flat vector logo of {request.prompt}, white background, geometric, professional branding"
+# class LogoGenerationRequest(BaseModel):
+#     prompt: str
+# # Replace the existing generate_image_logo function with this:
+# @app.post("/branding/generate-image")
+# def generate_image_logo(request: LogoGenerationRequest):
+#     print(f"DEBUG: Logo prompt received: {request.prompt}")
 
-    hf_resp = requests.post(
-        "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0",
-        headers={"Authorization": f"Bearer {hf_token}", "Content-Type": "application/json", "x-wait-for-model": "true", "x-use-cache": "false"},
-        json={
-            "inputs": enhanced_prompt,
-            "parameters": {"negative_prompt": "text, letters, mockup, photorealistic, 3d render, shadow, watermark, blurry", "num_inference_steps": 35, "guidance_scale": 8, "width": 1024, "height": 1024}
-        },
-        timeout=120
-    )
+#     hf_token = os.environ.get("HF_API_KEY")
+#     if not hf_token:
+#         raise HTTPException(status_code=500, detail="HF_API_KEY missing")
 
-    if hf_resp.status_code != 200:
-        detail = "Logo model warming up. Try again in 20s." if "loading" in hf_resp.text.lower() else f"HuggingFace Error: {hf_resp.text}"
-        raise HTTPException(status_code=503 if "loading" in hf_resp.text.lower() else 500, detail=detail)
+#     API_URL = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
 
-    return {"image_url": f"data:image/png;base64,{base64.b64encode(hf_resp.content).decode()}", "type": "logo"}
+#     headers = {
+#         "Authorization": f"Bearer {hf_token}",
+#         "Content-Type": "application/json",
+#         "x-use-cache": "false",
+#         "x-wait-for-model": "true"
+#     }
 
+#     # 🎯 PROFESSIONAL LOGO PROMPT
+#     positive_prompt = f"""
+#     Minimal vector logo of {request.prompt},
+#     single centered symbol,
+#     flat geometric design,
+#     clean sharp edges,
+#     white background,
+#     no text,
+#     no gradients,
+#     no shadows,
+#     professional startup branding,
+#     high contrast,
+#     scalable SVG style
+#     """
+
+#     negative_prompt = """
+#     photorealistic,
+#     illustration,
+#     3d render,
+#     mockup,
+#     background scene,
+#     text,
+#     letters,
+#     watermark,
+#     signature,
+#     blurry,
+#     low quality
+#     """
+
+#     payload = {
+#         "inputs": positive_prompt,
+#         "parameters": {
+#             "negative_prompt": negative_prompt,
+#             "num_inference_steps": 35,
+#             "guidance_scale": 8,
+#             "width": 1024,
+#             "height": 1024
+#         }
+#     }
+
+#     response = requests.post(API_URL, headers=headers, json=payload)
+
+#     if response.status_code != 200:
+#         print("HF ERROR:", response.text)
+#         raise HTTPException(
+#             status_code=500,
+#             detail=f"HuggingFace Error: {response.text}"
+#         )
+
+#     base64_image = base64.b64encode(response.content).decode("utf-8")
+#     return {
+#         "image_url": f"data:image/png;base64,{base64_image}",
+#         "type": "logo"
+#     }
+
+class SaveAssetRequest(BaseModel):
+    user_id: str
+    asset_type: str
+    content: str
 
 @app.post("/branding/assets/save")
 def save_asset(request: SaveAssetRequest):
-    response = supabase.table("branding_assets").insert({"user_id": request.user_id, "asset_type": request.asset_type, "content": request.content}).execute()
+    data = {
+        "user_id": request.user_id,
+        "asset_type": request.asset_type,
+        "content": request.content
+    }
+    response = supabase.table("branding_assets").insert(data).execute()
     return {"status": "success", "data": response.data}
 
 @app.get("/branding/assets/{user_id}")
@@ -518,24 +643,330 @@ def delete_asset(asset_id: str):
     return supabase.table("branding_assets").delete().eq("id", asset_id).execute()
 
 
-# ──────────────────────────────────────────────
-# AI TOOLS
-# ──────────────────────────────────────────────
+
+# --- AI TOOLS DRAWER ENDPOINT ---
+# --- AI TOOLS DRAWER ENDPOINT ---
+
+
+
+class ToolRequest(BaseModel):
+    user_id: str
+    tool_id: str
+    inputs: dict
+
 @app.post("/tools/run")
 def run_ai_tool(request: ToolRequest):
     tool_id = request.tool_id
-    d = request.inputs
+    data = request.inputs
 
-    prompts = {
-        "bio-generator": f"Write 3 professional social media bios (1-2 lines each, no emojis, separated by blank lines).\nRole: {d.get('role')}\nSkills: {d.get('skills')}\nTone: {d.get('tone')}",
-        "social-post": f"Write ONE {d.get('platform')} post. No excessive emojis/hashtags. Ready to publish.\nTopic: {d.get('topic')}\nAudience: {d.get('audience')}\nTone: {d.get('tone')}",
-        "idea-validator": f"Evaluate this startup idea as a VC. Structure: Score X/10, Market Assessment, Business Model Concerns (3 points), Execution Risks (3 points), Final Verdict.\nIdea: {d.get('idea')}",
-        "cold-email": f"Rewrite this cold email.\nFormat: Subject: ...\nBody: ...\n\nDraft: {d.get('draft')}",
-        "eli5": f"Explain like I'm 5: {d.get('concept')}. One short paragraph, simple language, no jargon.",
-        "seo-keywords": f"Generate 10 SEO keywords.\nTopic: {d.get('topic')}\nAudience: {d.get('audience')}\nFormat: 1. Keyword – Intent",
-        "job-description": f"Write a startup job description.\nRole: {d.get('role')}\nCulture: {d.get('vibe')}\nTasks: {d.get('tasks')}\nSections: About, Role Overview, Responsibilities, Requirements, Benefits.",
-        "competitor-swot": f"SWOT analysis.\nCompetitor: {d.get('competitor')}\nMy Company: {d.get('my_company')}\nFocus on actionable insights.",
+    # ------------------------------------------------------------------
+    # 1. SELECT PROMPT (STRICT, PROFESSIONAL OUTPUT)
+    # ------------------------------------------------------------------
+
+    if tool_id == "bio-generator":
+        prompt = f"""
+Write exactly 3 professional social media bios.
+
+Rules:
+- Each bio must be 1–2 lines maximum
+- No emojis
+- No markdown
+- No stars or bullet symbols
+- Separate each bio with ONE blank line
+- Use a clean, professional tone
+
+Context:
+Role: {data.get('role')}
+Key Skills: {data.get('skills')}
+Tone: {data.get('tone')}
+""".strip()
+
+    elif tool_id == "social-post":
+        prompt = f"""
+Write ONE high-quality {data.get('platform')} post.
+
+Rules:
+- No emojis unless natural for the platform
+- No markdown formatting
+- No excessive hashtags
+- Short, readable paragraphs
+- Ready to copy and publish
+
+Topic:
+{data.get('topic')}
+
+Target Audience:
+{data.get('audience')}
+
+Tone:
+{data.get('tone')}
+""".strip()
+
+    elif tool_id == "idea-validator":
+        prompt = f"""
+You are a venture capitalist evaluating an early-stage startup.
+
+Respond using ONLY the structure below.
+Do not add emojis, markdown, jokes, or extra commentary.
+
+Structure:
+
+Score: X/10
+
+Market Assessment:
+(one short paragraph about market size and demand)
+
+Business Model Concerns:
+1. ...
+2. ...
+3. ...
+
+Execution Risks:
+1. ...
+2. ...
+3. ...
+
+Final Verdict:
+(one honest sentence on whether this idea is investable)
+
+Startup Idea:
+{data.get('idea')}
+""".strip()
+
+    elif tool_id == "cold-email":
+        prompt = f"""
+Rewrite the following cold email.
+
+Rules:
+- Use the exact format below
+- No emojis
+- No markdown
+- Professional, concise, persuasive
+
+Format:
+
+Subject:
+<short subject line>
+
+Body:
+<email body>
+
+Draft Email:
+{data.get('draft')}
+""".strip()
+
+    elif tool_id == "eli5":
+        prompt = f"""
+Explain the following concept like I am 5 years old.
+
+Rules:
+- One short paragraph only
+- Simple language
+- No technical jargon
+- No emojis
+- No markdown
+
+Concept:
+{data.get('concept')}
+""".strip()
+
+    elif tool_id == "seo-keywords":
+        prompt = f"""
+You are an SEO specialist.
+
+Generate exactly 10 high-potential SEO keywords based on the information below.
+
+Topic:
+{data.get('topic')}
+
+Target Audience:
+{data.get('audience')}
+
+Requirements:
+- Focus on commercial and informational intent
+- Avoid overly generic keywords
+- Prioritize clarity and search relevance
+
+Output Format:
+1. Keyword – Search Intent
+2. Keyword – Search Intent
+3. Keyword – Search Intent
+...
+""".strip()
+
+
+    elif tool_id == "job-description":
+        prompt = f"""
+Write a professional job description suitable for a startup environment.
+
+Role:
+{data.get('role')}
+
+Company Culture:
+{data.get('vibe')}
+
+Key Responsibilities:
+{data.get('tasks')}
+
+Structure the response using the following sections only:
+About the Company
+Role Overview
+Key Responsibilities
+Requirements
+Benefits
+
+Maintain a clear, concise, and professional tone throughout.
+""".strip()
+
+
+    elif tool_id == "competitor-swot":
+        prompt = f"""
+You are a business strategy consultant.
+
+Conduct a SWOT analysis of the competitor listed below, with a strong emphasis on competitive positioning.
+
+Competitor:
+{data.get('competitor')}
+
+My Company:
+{data.get('my_company')}
+
+Response Requirements:
+- Clearly label Strengths, Weaknesses, Opportunities, and Threats
+- Keep each section concise and insight-driven
+- Focus on actionable insights that My Company can leverage to outperform the competitor
+""".strip()
+
+
+    else:
+        prompt = f"""
+Help with the following request in a clear and professional manner.
+
+Request:
+{data}
+""".strip()
+
+    # ------------------------------------------------------------------
+    # 2. RUN GEMINI MODEL
+    # ------------------------------------------------------------------
+
+    response = ask_gemini(prompt)
+
+    # ------------------------------------------------------------------
+    # 3. RETURN CLEAN TEXT ONLY
+    # ------------------------------------------------------------------
+
+    return {
+        "result": response.strip()
     }
 
-    prompt = prompts.get(tool_id, f"Help with: {d}")
-    return {"result": call_gemini(prompt)}
+
+
+# --- UPGRADED LOGO GENERATOR WITH GEMINI BRIDGE (PRODUCTION READY) ---
+
+class LogoGenerationRequest(BaseModel):
+    prompt: str
+
+
+@app.post("/branding/generate-image")
+def generate_image_logo(request: LogoGenerationRequest):
+    print(f"DEBUG: Original User Input: {request.prompt}")
+
+    hf_token = os.environ.get("HF_API_KEY")
+    if not hf_token:
+        raise HTTPException(status_code=500, detail="HF_API_KEY missing")
+
+    # ======================================================
+    # 1️⃣ GEMINI PROMPT ENGINEERING BRIDGE
+    # ======================================================
+    try:
+        bridge_prompt = f"""
+Act as an expert Prompt Engineer for Stable Diffusion XL.
+
+The user wants a professional startup logo for:
+"{request.prompt}"
+
+Requirements:
+- Minimalist flat vector logo
+- Single centered symbol
+- Pure white background
+- No text, no letters, no typography
+- Clean geometric shapes
+- Adobe Illustrator / SVG style
+- Corporate, sleek, professional branding
+
+Return ONLY the final prompt string.
+"""
+        enhanced_prompt = ask_gemini(bridge_prompt).strip()
+
+        print(f"DEBUG: Enhanced Prompt: {enhanced_prompt}")
+
+    except Exception as e:
+        print(f"⚠️ Gemini bridge failed, using fallback: {e}")
+        enhanced_prompt = (
+            f"Minimal flat vector logo of {request.prompt}, "
+            "single centered symbol, white background, "
+            "clean geometric design, professional branding"
+        )
+
+    # ======================================================
+    # 2️⃣ STABLE DIFFUSION XL (HUGGING FACE)
+    # ======================================================
+    API_URL = (
+        "https://router.huggingface.co/hf-inference/models/"
+        "stabilityai/stable-diffusion-xl-base-1.0"
+    )
+
+    headers = {
+        "Authorization": f"Bearer {hf_token}",
+        "Content-Type": "application/json",
+        "x-wait-for-model": "true",
+        "x-use-cache": "false",
+    }
+
+    negative_prompt = """
+text, letters, typography, words,
+mockup, scene, background environment,
+photorealistic, 3d render,
+shadow, gradient, watermark,
+low quality, blurry
+"""
+
+    payload = {
+        "inputs": enhanced_prompt,
+        "parameters": {
+            "negative_prompt": negative_prompt,
+            "num_inference_steps": 35,
+            "guidance_scale": 8,
+            "width": 1024,
+            "height": 1024,
+        },
+    }
+
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload)
+
+        if response.status_code != 200:
+            if "loading" in response.text.lower():
+                raise HTTPException(
+                    status_code=503,
+                    detail="Logo model is warming up. Try again in 20 seconds."
+                )
+            raise HTTPException(
+                status_code=500,
+                detail=f"HuggingFace Error: {response.text}"
+            )
+
+        base64_image = base64.b64encode(response.content).decode("utf-8")
+
+        return {
+            "image_url": f"data:image/png;base64,{base64_image}",
+            "type": "logo"
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ping")
+def ping():
+    return {"status": "alive"}
