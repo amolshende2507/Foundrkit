@@ -6,19 +6,62 @@ import os
 import requests  # <--- NEW IMPORT for Image API
 import base64    # <--- NEW IMPORT for Image Encoding
 from dotenv import load_dotenv
-import google.generativeai as genai
+
 from typing import Optional
 from uuid import UUID
 
 
 load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+def ask_gemini(prompt, json_mode=False):
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={GEMINI_API_KEY}"
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ]
+    }
+
+    # Optional JSON mode
+    if json_mode:
+        payload["generationConfig"] = {
+            "responseMimeType": "application/json"
+        }
+
+    response = requests.post(url, headers=headers, json=payload)
+
+    if response.status_code != 200:
+        print("GEMINI ERROR:", response.text)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Gemini API Error: {response.text}"
+        )
+
+    data = response.json()
+
+    try:
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception:
+        print(data)
+        raise HTTPException(
+            status_code=500,
+            detail="Invalid Gemini response"
+        )
 # Configure Supabase & AI
 url: str = os.environ.get("SUPABASE_URL")
 key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
 
 app = FastAPI()
 
@@ -88,10 +131,11 @@ def generate_proposal(request: ProposalRequest):
     """
 
     # Step C: Ask Gemini
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    ai_response = model.generate_content(prompt)
 
-    return {"proposal_text": ai_response.text}
+    
+    ai_text = ask_gemini(prompt)
+
+    return {"proposal_text": ai_text}
 
 
 class ChatRequest(BaseModel):
@@ -123,10 +167,9 @@ def chat_with_cofounder(request: ChatRequest):
     """
 
     # Step C: Generate Answer
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    ai_response = model.generate_content(prompt)
+    ai_text = ask_gemini(prompt)
 
-    return {"reply": ai_response.text}
+    return {"reply": ai_text}
 
 class ProposalSaveRequest(BaseModel):
     user_id: str
@@ -243,9 +286,9 @@ def generate_email(request: EmailRequest):
       "body": "Hi [Name],\n\nThe email body here..."
     }}
     """
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    ai_response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
-    return ai_response.text
+    ai_text = ask_gemini(prompt, json_mode=True)
+
+    return ai_text
 
 class EmailSaveRequest(BaseModel):
     user_id: str
@@ -312,13 +355,12 @@ def generate_tasks_ai(request: AITaskGenRequest):
     Break this down into 3-5 specific, actionable tasks.
     Return ONLY a JSON list of strings. Example: ["Buy Domain", "Design Logo", "Write Content"]
     """
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    result = model.generate_content(prompt)
+    result = ask_gemini(prompt)
     
     import json
     import re
     try:
-        json_str = re.search(r'\[.*\]', result.text, re.DOTALL).group(0)
+        json_str = re.search(r'\[.*\]', result, re.DOTALL).group(0)
         tasks = json.loads(json_str)
         return {"tasks": tasks}
     except:
@@ -409,9 +451,8 @@ def send_message(request: ChatMessageRequest):
     Be short, strategic, and proactive.
     """
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    ai_response = model.generate_content(prompt)
-    ai_text = ai_response.text
+    ai_text = ask_gemini(prompt)
+    
 
     supabase.table("chat_messages").insert({
         "session_id": request.session_id,
@@ -495,9 +536,7 @@ def generate_branding(request: BrandingRequest):
         Keep it under 50 words.
         """
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    response = model.generate_content(prompt)
-    text = response.text
+    text = ask_gemini(prompt)
     clean_text = text.replace("```json", "").replace("```xml", "").replace("```svg", "").replace("```", "").strip()
 
     return {"result": clean_text, "type": request.asset_type}
@@ -811,15 +850,14 @@ Request:
     # 2. RUN GEMINI MODEL
     # ------------------------------------------------------------------
 
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    response = model.generate_content(prompt)
+    response = ask_gemini(prompt)
 
     # ------------------------------------------------------------------
     # 3. RETURN CLEAN TEXT ONLY
     # ------------------------------------------------------------------
 
     return {
-        "result": response.text.strip()
+        "result": response.strip()
     }
 
 
@@ -859,9 +897,7 @@ Requirements:
 
 Return ONLY the final prompt string.
 """
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        bridge_response = model.generate_content(bridge_prompt)
-        enhanced_prompt = bridge_response.text.strip()
+        enhanced_prompt = ask_gemini(bridge_prompt).strip()
 
         print(f"DEBUG: Enhanced Prompt: {enhanced_prompt}")
 
