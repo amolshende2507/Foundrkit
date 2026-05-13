@@ -22,13 +22,18 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 app = FastAPI()
 
-# --- FIX CORS HERE ---
+# --- CORS Configuration ---
+# Get allowed origins from environment or use defaults
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000,https://foundrkit.vercel.app").split(",")
+allowed_origins = [origin.strip() for origin in allowed_origins]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # <--- The "*" means "Allow Everyone". Crucial for local dev.
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (POST, GET, PUT, DELETE)
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
 
 # 1. Define what data the frontend sends us
