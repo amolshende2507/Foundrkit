@@ -62,7 +62,6 @@ key: str = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
 
-
 app = FastAPI()
 
 # --- CORS Configuration ---
@@ -542,83 +541,6 @@ def generate_branding(request: BrandingRequest):
     return {"result": clean_text, "type": request.asset_type}
 
 
-# --- NEW ENDPOINT: IMAGE GENERATION (Replacing Pollinations URL logic) ---
-
-# class LogoGenerationRequest(BaseModel):
-#     prompt: str
-# # Replace the existing generate_image_logo function with this:
-# @app.post("/branding/generate-image")
-# def generate_image_logo(request: LogoGenerationRequest):
-#     print(f"DEBUG: Logo prompt received: {request.prompt}")
-
-#     hf_token = os.environ.get("HF_API_KEY")
-#     if not hf_token:
-#         raise HTTPException(status_code=500, detail="HF_API_KEY missing")
-
-#     API_URL = "https://router.huggingface.co/hf-inference/models/stabilityai/stable-diffusion-xl-base-1.0"
-
-#     headers = {
-#         "Authorization": f"Bearer {hf_token}",
-#         "Content-Type": "application/json",
-#         "x-use-cache": "false",
-#         "x-wait-for-model": "true"
-#     }
-
-#     # 🎯 PROFESSIONAL LOGO PROMPT
-#     positive_prompt = f"""
-#     Minimal vector logo of {request.prompt},
-#     single centered symbol,
-#     flat geometric design,
-#     clean sharp edges,
-#     white background,
-#     no text,
-#     no gradients,
-#     no shadows,
-#     professional startup branding,
-#     high contrast,
-#     scalable SVG style
-#     """
-
-#     negative_prompt = """
-#     photorealistic,
-#     illustration,
-#     3d render,
-#     mockup,
-#     background scene,
-#     text,
-#     letters,
-#     watermark,
-#     signature,
-#     blurry,
-#     low quality
-#     """
-
-#     payload = {
-#         "inputs": positive_prompt,
-#         "parameters": {
-#             "negative_prompt": negative_prompt,
-#             "num_inference_steps": 35,
-#             "guidance_scale": 8,
-#             "width": 1024,
-#             "height": 1024
-#         }
-#     }
-
-#     response = requests.post(API_URL, headers=headers, json=payload)
-
-#     if response.status_code != 200:
-#         print("HF ERROR:", response.text)
-#         raise HTTPException(
-#             status_code=500,
-#             detail=f"HuggingFace Error: {response.text}"
-#         )
-
-#     base64_image = base64.b64encode(response.content).decode("utf-8")
-#     return {
-#         "image_url": f"data:image/png;base64,{base64_image}",
-#         "type": "logo"
-#     }
-
 class SaveAssetRequest(BaseModel):
     user_id: str
     asset_type: str
@@ -645,9 +567,6 @@ def delete_asset(asset_id: str):
 
 
 # --- AI TOOLS DRAWER ENDPOINT ---
-# --- AI TOOLS DRAWER ENDPOINT ---
-
-
 
 class ToolRequest(BaseModel):
     user_id: str
@@ -846,15 +765,7 @@ Request:
 {data}
 """.strip()
 
-    # ------------------------------------------------------------------
-    # 2. RUN GEMINI MODEL
-    # ------------------------------------------------------------------
-
     response = ask_gemini(prompt)
-
-    # ------------------------------------------------------------------
-    # 3. RETURN CLEAN TEXT ONLY
-    # ------------------------------------------------------------------
 
     return {
         "result": response.strip()
@@ -880,8 +791,9 @@ def generate_image_logo(request: LogoGenerationRequest):
     # 1️⃣ GEMINI PROMPT ENGINEERING BRIDGE
     # ======================================================
     try:
+        # Changed the prompt to be more generalized since we're pivoting models
         bridge_prompt = f"""
-Act as an expert Prompt Engineer for Stable Diffusion XL.
+Act as an expert Prompt Engineer for a high-end AI Image Generator.
 
 The user wants a professional startup logo for:
 "{request.prompt}"
@@ -910,51 +822,61 @@ Return ONLY the final prompt string.
         )
 
     # ======================================================
-    # 2️⃣ STABLE DIFFUSION XL (HUGGING FACE)
+    # 2️⃣ HUGGING FACE INFERENCE ROUTER
     # ======================================================
+    # ✨ FIX 1: We migrated from SDXL to FLUX.1-schnell (the current flagship HF free tier model)
     API_URL = (
         "https://router.huggingface.co/hf-inference/models/"
-        "stabilityai/stable-diffusion-xl-base-1.0"
+        "black-forest-labs/FLUX.1-schnell"
     )
 
+    # ✨ FIX 2: Added "Accept": "image/png" to force HF to return image bytes, not JSON
     headers = {
         "Authorization": f"Bearer {hf_token}",
         "Content-Type": "application/json",
+        "Accept": "image/png", 
         "x-wait-for-model": "true",
         "x-use-cache": "false",
     }
 
-    negative_prompt = """
-text, letters, typography, words,
-mockup, scene, background environment,
-photorealistic, 3d render,
-shadow, gradient, watermark,
-low quality, blurry
-"""
+    # ✨ FIX 3: FLUX doesn't process negative_prompt kwargs natively on HF, 
+    # so we append the constraints directly into the prompt string.
+    final_prompt = enhanced_prompt + " (Ensure pure white background, no text, no letters, no watermark, flat vector, no shadows)."
 
     payload = {
-        "inputs": enhanced_prompt,
+        "inputs": final_prompt,
         "parameters": {
-            "negative_prompt": negative_prompt,
-            "num_inference_steps": 35,
-            "guidance_scale": 8,
             "width": 1024,
             "height": 1024,
         },
     }
 
     try:
-        response = requests.post(API_URL, headers=headers, json=payload)
+        response = requests.post(
+            API_URL,
+            headers=headers,
+            json=payload,
+            timeout=120
+        )
+
+        print("HF STATUS:", response.status_code)
 
         if response.status_code != 200:
-            if "loading" in response.text.lower():
-                raise HTTPException(
-                    status_code=503,
-                    detail="Logo model is warming up. Try again in 20 seconds."
-                )
+            print("HF ERROR:", response.text)
+
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=response.text
+            )
+
+        content_type = response.headers.get("content-type", "")
+
+        if "image" not in content_type:
+            print("INVALID RESPONSE:", response.text)
+
             raise HTTPException(
                 status_code=500,
-                detail=f"HuggingFace Error: {response.text}"
+                detail=f"HF did not return an image. It returned content-type: {content_type}"
             )
 
         base64_image = base64.b64encode(response.content).decode("utf-8")
@@ -964,8 +886,16 @@ low quality, blurry
             "type": "logo"
         }
 
+    except HTTPException as e:
+        raise e
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("IMAGE GENERATION ERROR:", str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @app.get("/ping")
 def ping():
