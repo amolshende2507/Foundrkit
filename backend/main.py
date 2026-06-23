@@ -812,6 +812,8 @@ Return ONLY the final prompt string.
         enhanced_prompt = ask_gemini(bridge_prompt).strip()
 
         print(f"DEBUG: Enhanced Prompt: {enhanced_prompt}")
+        print("========== START ==========")
+        print("HF_API_KEY Exists:", os.environ.get("HF_API_KEY") is not None)
 
     except Exception as e:
         print(f"⚠️ Gemini bridge failed, using fallback: {e}")
