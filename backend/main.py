@@ -548,13 +548,24 @@ class SaveAssetRequest(BaseModel):
 
 @app.post("/branding/assets/save")
 def save_asset(request: SaveAssetRequest):
+    print("========== SAVE REQUEST ==========")
+    print(request)
+
     data = {
         "user_id": request.user_id,
         "asset_type": request.asset_type,
         "content": request.content
     }
+
     response = supabase.table("branding_assets").insert(data).execute()
-    return {"status": "success", "data": response.data}
+
+    print("========== RESPONSE ==========")
+    print(response)
+
+    return {
+        "status": "success",
+        "data": response.data
+    }
 
 @app.get("/branding/assets/{user_id}")
 def get_assets(user_id: str):
